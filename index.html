@@ -558,6 +558,7 @@
    Поле week_only сохранено как в исходнике (в exe оно тоже не влияет на показ). */
 
 const DAYS = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+const DAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня",
                 "июля", "августа", "сентября", "октября", "ноября", "декабря"];
 const TIMES = [
@@ -993,7 +994,7 @@ function buildViews() {
     const specs = [
         { id: "today", label: "Сегодня" },
         { id: "tomorrow", label: "Завтра" },
-        ...DAYS.map((name, i) => ({ id: i, label: name.slice(0, 3), hint: name })),
+        ...DAYS.map((name, i) => ({ id: i, label: DAY_SHORT[i], hint: name + " — полная вкладка дня" })),
         { id: "week", label: "Неделя" }
     ];
     viewsRow.querySelectorAll(".chip").forEach(c => c.remove());
