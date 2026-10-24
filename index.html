@@ -16,9 +16,40 @@
         --text-faint: #5d6476;
         --accent: #4f8cff;
         --accent-soft: rgba(79, 140, 255, .14);
+        --accent-border: rgba(79, 140, 255, .35);
         --now: #2dd4bf;
         --now-soft: rgba(45, 212, 191, .12);
         --chips-row: #222738;
+        --badge-lec-bg: rgba(79, 140, 255, .15);
+        --badge-lec-t: #8db3ff;
+        --badge-lab-bg: rgba(45, 212, 191, .13);
+        --badge-lab-t: #5fe0d0;
+        --badge-pra-bg: rgba(251, 191, 36, .13);
+        --badge-pra-t: #fcd34d;
+    }
+
+    /* Тема «Янтарь» — тоже тёмная, но в тёплых тонах: тёмно-коричневый графит
+       + янтарный акцент. Переключается в настройках (state.theme). */
+    [data-theme="amber"] {
+        --bg: #14100b;
+        --bg-soft: #1b1510;
+        --card: #211a12;
+        --card-border: #352b1d;
+        --text: #f0e9dd;
+        --text-dim: #b3a68d;
+        --text-faint: #6f6350;
+        --accent: #f5a524;
+        --accent-soft: rgba(245, 165, 36, .13);
+        --accent-border: rgba(245, 165, 36, .38);
+        --now: #34d399;
+        --now-soft: rgba(52, 211, 153, .11);
+        --chips-row: #2b2218;
+        --badge-lec-bg: rgba(167, 139, 250, .16);
+        --badge-lec-t: #c4b5fd;
+        --badge-lab-bg: rgba(52, 211, 153, .14);
+        --badge-lab-t: #6ee7b7;
+        --badge-pra-bg: rgba(245, 165, 36, .14);
+        --badge-pra-t: #fbbf24;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,6 +60,7 @@
         font-family: "Segoe UI", system-ui, sans-serif;
         min-height: 100vh;
         padding: 24px 20px 60px;
+        transition: background .35s ease, color .35s ease;
     }
 
     .wrap { max-width: 1100px; margin: 0 auto; }
@@ -48,7 +80,7 @@
         margin-left: auto;
         background: var(--accent-soft);
         color: var(--accent);
-        border: 1px solid rgba(79, 140, 255, .3);
+        border: 1px solid var(--accent-border);
         padding: 7px 14px;
         border-radius: 999px;
         font-size: 14px;
@@ -201,7 +233,7 @@
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         transition: background .15s, color .15s, border-color .15s, transform .12s;
     }
-    .gate-btn:hover { color: var(--accent); border-color: rgba(79, 140, 255, .4); background: var(--accent-soft); }
+    .gate-btn:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
     .gate-btn:active { transform: scale(.96); }
     .gate-note { color: var(--text-faint); font-size: 12px; margin-top: 14px; text-align: center; }
     .gate-skip {
@@ -230,7 +262,7 @@
         transition: color .15s, border-color .15s, background .15s;
     }
     .settings-toggle:hover { color: var(--text); border-color: #353c50; }
-    .settings-toggle.open { color: var(--accent); border-color: rgba(79, 140, 255, .4); }
+    .settings-toggle.open { color: var(--accent); border-color: var(--accent-border); }
     .settings-toggle .gear {
         display: inline-block;
         font-size: 15px;
@@ -493,9 +525,9 @@
         border-radius: 6px;
         white-space: nowrap;
     }
-    .badge.type-lec { background: rgba(79, 140, 255, .15); color: #8db3ff; }
-    .badge.type-lab { background: rgba(45, 212, 191, .13); color: #5fe0d0; }
-    .badge.type-pra { background: rgba(251, 191, 36, .13); color: #fcd34d; }
+    .badge.type-lec { background: var(--badge-lec-bg); color: var(--badge-lec-t); }
+    .badge.type-lab { background: var(--badge-lab-bg); color: var(--badge-lab-t); }
+    .badge.type-pra { background: var(--badge-pra-bg); color: var(--badge-pra-t); }
     .badge.sub { background: var(--chips-row); color: var(--text-dim); }
     .badge.room { background: var(--chips-row); color: var(--text); font-variant-numeric: tabular-nums; }
 
@@ -521,7 +553,7 @@
         border-radius: 16px;
         padding: 14px;
     }
-    .week-day.today { border-color: rgba(79, 140, 255, .45); }
+    .week-day.today { border-color: var(--accent-border); }
     .week-day h3 {
         font-size: 15.5px;
         font-weight: 650;
@@ -639,6 +671,9 @@
             </div>
             <div class="chip-row" id="halfRow" role="group" aria-label="Чётность недели">
                 <span class="label">Неделя</span>
+            </div>
+            <div class="chip-row" id="themeRow" role="group" aria-label="Тема оформления">
+                <span class="label">Тема</span>
             </div>
         </div>
     </div>
@@ -1199,19 +1234,21 @@ if (!GROUPS[state.g]) {
     state.g = "ksk";
 }
 if (typeof state.settingsOpen !== "boolean") state.settingsOpen = false;
+if (!["graphite", "amber"].includes(state.theme)) state.theme = "graphite";   // темы оформления
+document.documentElement.dataset.theme = state.theme;
 
 function saveState() {
     // если выбор ещё «в ожидании» (динамическая группа не дошила) — сохраняем именно его
     const g = state.gPending || state.g;
     localStorage.setItem(STORE_KEY, JSON.stringify(
-        { view: state.view, sub: state.sub, halfMode: state.halfMode, g, settingsOpen: state.settingsOpen }
+        { view: state.view, sub: state.sub, halfMode: state.halfMode, g, settingsOpen: state.settingsOpen, theme: state.theme }
     ));
 }
 
 /* ══════════════════ ОТРИСОВКА ══════════════════ */
 
 const $ = sel => document.querySelector(sel);
-const main = $("#main"), viewsRow = $("#viewsRow"), subRow = $("#subRow"), halfRow = $("#halfRow"), groupRow = $("#groupRow");
+const main = $("#main"), viewsRow = $("#viewsRow"), subRow = $("#subRow"), halfRow = $("#halfRow"), groupRow = $("#groupRow"), themeRow = $("#themeRow");
 const settingsToggle = $("#settingsToggle"), settingsPanel = $("#settingsPanel");
 
 function makeChip(label, hint, onClick) {
@@ -1280,11 +1317,35 @@ function buildHalves() {
     });
 }
 
+// --- тема оформления: «Графит» (синяя) и «Янтарь» (тёплая), обе тёмные
+let themeChips = [];
+function buildThemes() {
+    const specs = [
+        { id: "graphite", label: "Графит", hint: "Тёмно-синяя, холодная" },
+        { id: "amber", label: "Янтарь", hint: "Тёмно-коричневая, тёплая" }
+    ];
+    themeChips = specs.map(s => {
+        const chip = makeChip(s.label, s.hint, () => {
+            state.theme = s.id;
+            document.documentElement.dataset.theme = s.id;   // CSS подхватывает мгновенно
+            saveState();
+            renderThemes();
+        });
+        chip.dataset.themeId = s.id;
+        themeRow.appendChild(chip);
+        return chip;
+    });
+}
+function renderThemes() {
+    themeChips.forEach(chip => chip.classList.toggle("active", state.theme === chip.dataset.themeId));
+}
+
 // Показ/скрытие панели настроек
 function applySettingsPanel() {
     settingsPanel.classList.toggle("open", state.settingsOpen);
     settingsToggle.classList.toggle("open", state.settingsOpen);
     settingsToggle.setAttribute("aria-expanded", String(state.settingsOpen));
+    renderThemes();
 }
 
 // --- выбор группы: любимые чипы + «Все группы ▾» с поиском
@@ -1928,6 +1989,7 @@ function render(animate = true) {
 buildViews();
 buildSubs();
 buildHalves();
+buildThemes();
 buildGroups();
 
 settingsToggle.addEventListener("click", () => {
