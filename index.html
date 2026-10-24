@@ -128,6 +128,32 @@
     }
     .chip.active.today-hint::after { background: #fff; }
 
+    /* --- выпадающий список всех групп --- */
+    #groupRow .group-picker { position: relative; display: inline-flex; }
+    .picker-list {
+        position: absolute; top: calc(100% + 8px); left: 0; z-index: 60;
+        width: 290px; max-width: 86vw;
+        background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, .55);
+        padding: 9px; display: none;
+    }
+    .picker-list.open { display: block; animation: picker-in .18s ease both; }
+    @keyframes picker-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+    .picker-search {
+        width: 100%; box-sizing: border-box; margin-bottom: 8px;
+        background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 9px;
+        color: var(--text); font: inherit; font-size: 14px; padding: 8px 11px; outline: none;
+    }
+    .picker-search:focus { border-color: var(--accent); }
+    .picker-list-x { display: flex; flex-direction: column; gap: 3px; max-height: 300px; overflow: auto; }
+    .picker-item {
+        all: unset; display: block; padding: 7px 10px; border-radius: 8px;
+        color: var(--text-dim); font-size: 14px; cursor: pointer;
+    }
+    .picker-item:hover { background: var(--accent-soft); color: var(--text); }
+    .picker-item.active { color: var(--accent); font-weight: 600; }
+    .picker-empty { color: var(--text-faint); font-size: 13px; text-align: center; padding: 10px 0; }
+
     /* ---------- Блок «Настройки» ---------- */
     .settings-toggle {
         display: flex;
@@ -686,25 +712,52 @@ function parseRest(rest) {
 }
 
 const lessons = [];
-for (const [gid, group] of Object.entries(GROUPS)) {
-    for (const line of group.raw.split("\n")) {
-        const s = line.trim();
-        if (!s) continue;
-        const [dayName, timeIdx, pos, sub, room, , title] = s.split("|");
-        const day = DAY_INDEX[dayName.trim()];
-        if (day === undefined) continue;
-        const type = parseType(title.trim());
-        const info = parseRest(type.rest);
-        lessons.push({
-            g: gid,
-            d: day, t: +timeIdx, pos: pos.trim(), sub: +sub, w: 0, /* week_only — сохранено, как в исходнике, на показ не влияет */
-            room: room.trim() === "—" ? "" : room.trim(),
-            title: title.trim(),
-            subject: info.subject, teacher: info.teacher, note: info.note,
-            type: type.type, typeLabel: type.label,
-            key: gid + "-" + day + "-" + timeIdx + "-" + pos.trim() + "-" + sub
-        });
+function rebuildLessons() {
+    lessons.length = 0;
+    for (const [gid, group] of Object.entries(GROUPS)) {
+        for (const line of group.raw.split("\n")) {
+            const s = line.trim();
+            if (!s) continue;
+            const [dayName, timeIdx, pos, sub, room, , title] = s.split("|");
+            const day = DAY_INDEX[dayName.trim()];
+            if (day === undefined) continue;
+            const type = parseType(title.trim());
+            const info = parseRest(type.rest);
+            lessons.push({
+                g: gid,
+                d: day, t: +timeIdx, pos: pos.trim(), sub: +sub, w: 0, /* week_only — сохранено, как в исходнике, на показ не влияет */
+                room: room.trim() === "—" ? "" : room.trim(),
+                title: title.trim(),
+                subject: info.subject, teacher: info.teacher, note: info.note,
+                type: type.type, typeLabel: type.label,
+                key: gid + "-" + day + "-" + timeIdx + "-" + pos.trim() + "-" + sub
+            });
+        }
     }
+}
+rebuildLessons();
+
+// id статических групп (м always живой fallback)
+const STATIC_IDS = Object.keys(GROUPS);
+
+/* Динамическое расписание (schedule.json рядом со страницей) — генерируется
+   GitHub Actions из XLS-файлов cchgeu.ru (groups 24-го набора).
+   Формат каждой строки совпадает со статикой, так что всё работает без правок рендера. */
+function applyScheduleData(data) {
+    if (!data || !data.groups) return;
+    let added = 0;
+    for (const [code, info] of Object.entries(data.groups)) {
+        if (!info || !Array.isArray(info.lessons) || !info.lessons.length) continue;
+        GROUPS[code] = { code, raw: info.lessons.join("\n") };
+        added++;
+    }
+    if (!added) return;
+    rebuildLessons();
+    if (!GROUPS[state.g]) state.g = "ksk";
+    if (state.sub > 0 && !subsOfGroup(state.g).includes(state.sub)) state.sub = 0;
+    buildSubs();
+    buildGroups();
+    render(false);
 }
 
 /* ══════════════════ РЕЙТИНГ ПРЕПОДАВАТЕЛЕЙ — общий, с именами ══════════════════
@@ -962,7 +1015,7 @@ const state = Object.assign(
 state.view = state.view === 0 || state.view ? state.view : "today";
 if (!(state.view === "today" || state.view === "tomorrow" || state.view === "week"
       || (Number.isInteger(state.view) && state.view >= 0 && state.view <= 6))) state.view = "today";
-if (![0, 1, 2].includes(state.sub)) state.sub = 0;
+if (![0, 1, 2, 3].includes(state.sub)) state.sub = 0;   // 3 = третья п/г (бывает в XLS); проверка по группе позже
 if (!["auto", 1, 2].includes(state.halfMode)) state.halfMode = "auto";
 if (!GROUPS[state.g]) state.g = "ksk";
 if (typeof state.settingsOpen !== "boolean") state.settingsOpen = false;
@@ -1008,12 +1061,23 @@ function buildViews() {
 
 // --- выбор подгруппы
 let subChips = [];
+function subsOfGroup(gid) {
+    const set = new Set();
+    for (const l of lessons) if (l.g === gid && l.sub > 0) set.add(l.sub);
+    return [...set].sort((a, b) => a - b);
+}
+const SUB_NAMES = { 1: "Первая", 2: "Вторая", 3: "Третья", 4: "Четвёртая" };
 function buildSubs() {
-    const specs = [
-        { id: 0, label: "Обе" }, { id: 1, label: "Первая" }, { id: 2, label: "Вторая" }
-    ];
-    subChips = specs.map(s => {
+    subRow.querySelectorAll(".chip").forEach(c => c.remove());
+    const subs = subsOfGroup(state.g);
+    if ([0, 1, 2].includes(state.sub) === false && subs.includes(state.sub) === false) state.sub = 0;
+    subChips = [{ id: 0, label: "Обе" }].concat(
+        subs.length ? subs.map(s => ({ id: s, label: SUB_NAMES[s] || (s + "-я") }))
+                    : [{ id: 1, label: "Первая" }, { id: 2, label: "Вторая" }]
+    );
+    subChips = subChips.map(s => {
         const chip = makeChip(s.label, "", () => { state.sub = s.id; saveState(); render(); });
+        chip.dataset.sub = String(s.id);
         subRow.appendChild(chip);
         return chip;
     });
@@ -1041,19 +1105,109 @@ function applySettingsPanel() {
     settingsToggle.setAttribute("aria-expanded", String(state.settingsOpen));
 }
 
-// --- выбор группы
-let groupChips = [];
+// --- выбор группы: любимые чипы + «Все группы ▾» с поиском
+let groupChips = [], pickerBtn = null, pickerLabel = null, pickerList = null, pickerSearch = null, pickerItemsBox = null;
 function buildGroups() {
-    groupChips = Object.entries(GROUPS).map(([id, grp]) => {
-        const chip = makeChip(grp.code, "", () => { state.g = id; saveState(); render(); });
+    groupRow.querySelectorAll("button.chip, .group-picker").forEach(n => n.remove());
+    groupChips = STATIC_IDS.map(id => {
+        const chip = makeChip(GROUPS[id].code, "", () => { state.g = id; saveState(); render(); });
+        chip.dataset.gid = id;
         groupRow.appendChild(chip);
         return chip;
     });
+    const others = Object.keys(GROUPS).filter(id => !STATIC_IDS.includes(id));
+    if (!others.length) return;
+
+    pickerBtn = document.createElement("button");
+    pickerBtn.className = "chip group-picker";
+    pickerBtn.title = "Выбрать любую группу 24-го набора";
+    pickerLabel = document.createElement("span");
+    pickerLabel.textContent = "Все группы";
+    const chev = document.createElement("span");
+    chev.textContent = " ▾";
+    pickerBtn.append(pickerLabel, chev);
+    pickerBtn.addEventListener("click", e => {
+        // клики внутри списка (по элементам) не должны заново открывать панель
+        if (pickerList && pickerList.contains(e.target)) return;
+        e.stopPropagation();
+        togglePicker(!pickerList.classList.contains("open"));
+    });
+
+    pickerList = document.createElement("div");
+    pickerList.className = "picker-list";
+    pickerSearch = document.createElement("input");
+    pickerSearch.className = "picker-search";
+    pickerSearch.type = "search";
+    pickerSearch.placeholder = "Поиск: ИСП, КСК…";
+    pickerSearch.addEventListener("input", renderPickerItems);
+    pickerSearch.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+            const first = pickerItemsBox.querySelector(".picker-item:not([hidden])");
+            if (first) { pickGroup(first.dataset.gid); }
+        }
+    });
+    pickerItemsBox = document.createElement("div");
+    pickerItemsBox.className = "picker-list-x";
+    pickerList.append(pickerSearch, pickerItemsBox);
+    pickerBtn.appendChild(pickerList);
+    groupRow.appendChild(pickerBtn);
+    renderPickerItems();
 }
+function pickGroup(gid) {
+    state.g = gid;
+    if (state.sub > 0 && !subsOfGroup(gid).includes(state.sub)) state.sub = 0;
+    saveState();
+    buildSubs();
+    togglePicker(false);
+    render();
+}
+function togglePicker(open) {
+    if (!pickerList) return;
+    pickerList.classList.toggle("open", open);
+    if (open) { pickerSearch.value = ""; renderPickerItems(); setTimeout(() => pickerSearch.focus(), 0); }
+}
+function renderPickerItems() {
+    if (!pickerItemsBox) return;
+    const q = (pickerSearch.value || "").trim().toLowerCase();
+    pickerItemsBox.innerHTML = "";
+    let shown = 0;
+    for (const id of Object.keys(GROUPS)) {
+        const grp = GROUPS[id];
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "picker-item" + (state.g === id ? " active" : "");
+        b.dataset.gid = id;
+        b.textContent = grp.code;
+        const hit = !q || grp.code.toLowerCase().includes(q);
+        b.hidden = !hit;
+        if (hit) shown++;
+        b.addEventListener("click", () => pickGroup(id));
+        pickerItemsBox.appendChild(b);
+    }
+    if (!shown) {
+        const d = document.createElement("div");
+        d.className = "picker-empty";
+        d.textContent = "Не найдено";
+        pickerItemsBox.appendChild(d);
+    }
+}
+document.addEventListener("click", e => {
+    if (pickerList && pickerList.classList.contains("open")
+        && !pickerList.contains(e.target) && e.target !== pickerBtn) {
+        togglePicker(false);
+    }
+});
+document.addEventListener("keydown", e => {
+    if (e.key === "Escape") togglePicker(false);
+});
 
 function renderGroups() {
-    const ids = Object.keys(GROUPS);
-    groupChips.forEach((chip, i) => chip.classList.toggle("active", state.g === ids[i]));
+    groupChips.forEach(chip => chip.classList.toggle("active", state.g === chip.dataset.gid));
+    if (pickerBtn && pickerLabel) {
+        const isDyn = !STATIC_IDS.includes(state.g);
+        pickerLabel.textContent = isDyn ? GROUPS[state.g].code : "Все группы";
+        pickerBtn.classList.toggle("active", isDyn);
+    }
 }
 
 function renderControls() {
@@ -1067,7 +1221,7 @@ function renderControls() {
         const dayIdx = typeof id === "number" ? id : (id === "today" ? todayIdx : -1);
         chip.classList.toggle("today-hint", dayIdx === todayIdx);
     });
-    subChips.forEach((chip, i) => chip.classList.toggle("active", state.sub === [0, 1, 2][i]));
+    subChips.forEach(chip => chip.classList.toggle("active", state.sub === +chip.dataset.sub));
     halfChips.forEach((chip, i) => chip.classList.toggle("active", state.halfMode === ["auto", 1, 2][i]));
 }
 
@@ -1470,6 +1624,13 @@ render();
 
 // подтягиваем общий рейтинг из облака и молча обновляем плашки у фамилий
 RATINGS.fetchAll().then(() => render(false));
+
+// динамическое расписание всех групп 24-набора (генерируется GitHub Actions).
+// fetch same-origin; при недоступности тихо остаёмся на вшитой статике КСК/ММР
+fetch("schedule.json", { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => { applyScheduleData(data); })
+    .catch(() => {});
 
 // обновляем подсветку «сейчас/прошло» раз в минуту — тихо, без анимаций
 setInterval(() => render(false), 60000);
