@@ -153,6 +153,64 @@
     .picker-item:hover { background: var(--accent-soft); color: var(--text); }
     .picker-item.active { color: var(--accent); font-weight: 600; }
     .picker-empty { color: var(--text-faint); font-size: 13px; text-align: center; padding: 10px 0; }
+    .group-picker .chev { font-size: 10px; transition: transform .25s ease; }
+    .group-picker.open .chev { transform: rotate(180deg); }
+
+    /* ---------- Плашка первого запуска «Выберите группу» ---------- */
+    .gate-overlay {
+        position: fixed; inset: 0; z-index: 80;
+        background: rgba(5, 7, 12, .66);
+        backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+        animation: fade-in .2s ease both;
+    }
+    .gate-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        padding: 24px 22px 18px;
+        width: min(100%, 430px);
+        animation: pop-in .25s ease both;
+    }
+    .gate-emoji { font-size: 30px; }
+    .gate-title { font-size: 19px; font-weight: 650; margin-top: 10px; }
+    .gate-sub { color: var(--text-dim); font-size: 13.5px; line-height: 1.4; margin-top: 6px; }
+    .gate-search {
+        width: 100%; box-sizing: border-box; margin-top: 14px;
+        background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 10px;
+        color: var(--text); font: inherit; font-size: 14px; padding: 9px 12px; outline: none;
+    }
+    .gate-search:focus { border-color: var(--accent); }
+    .gate-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 7px;
+        margin-top: 12px;
+        max-height: 42vh;
+        overflow-y: auto;
+    }
+    .gate-btn {
+        all: unset; cursor: pointer; box-sizing: border-box;
+        padding: 10px 6px; text-align: center;
+        border-radius: 10px;
+        background: var(--bg-soft);
+        border: 1px solid var(--card-border);
+        color: var(--text-dim);
+        font-size: 13px; font-weight: 600;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        transition: background .15s, color .15s, border-color .15s, transform .12s;
+    }
+    .gate-btn:hover { color: var(--accent); border-color: rgba(79, 140, 255, .4); background: var(--accent-soft); }
+    .gate-btn:active { transform: scale(.96); }
+    .gate-note { color: var(--text-faint); font-size: 12px; margin-top: 14px; text-align: center; }
+    .gate-skip {
+        all: unset; cursor: pointer;
+        color: var(--text-faint); font-size: 12.5px;
+        text-decoration: underline dashed;
+        display: block; margin: 8px auto 0; padding: 4px 10px;
+    }
+    .gate-skip:hover { color: var(--text-dim); }
 
     /* ---------- Блок «Настройки» ---------- */
     .settings-toggle {
@@ -766,10 +824,16 @@ function applyScheduleData(data) {
     }
     if (!added) return;
     rebuildLessons();
+    // отложенный выбор динамической группы — восстанавливаем именно его
+    if (state.gPending && GROUPS[state.gPending]) {
+        state.g = state.gPending;
+        state.gPending = null;
+    }
     if (!GROUPS[state.g]) state.g = "ksk";
     if (state.sub > 0 && !subsOfGroup(state.g).includes(state.sub)) state.sub = 0;
     buildSubs();
     buildGroups();
+    if (gateRefresh) gateRefresh();   // список в открытой плашке первого запуска
     render(false);
 }
 
@@ -1030,12 +1094,19 @@ if (!(state.view === "today" || state.view === "tomorrow" || state.view === "wee
       || (Number.isInteger(state.view) && state.view >= 0 && state.view <= 6))) state.view = "today";
 if (![0, 1, 2, 3].includes(state.sub)) state.sub = 0;   // 3 = третья п/г (бывает в XLS); проверка по группе позже
 if (!["auto", 1, 2].includes(state.halfMode)) state.halfMode = "auto";
-if (!GROUPS[state.g]) state.g = "ksk";
+if (!GROUPS[state.g]) {
+    // группа динамическая (из schedule.json) и ещё не загрузилась —
+    // запоминаем отложенно и восстановим, когда данные придут
+    state.gPending = state.g;
+    state.g = "ksk";
+}
 if (typeof state.settingsOpen !== "boolean") state.settingsOpen = false;
 
 function saveState() {
+    // если выбор ещё «в ожидании» (динамическая группа не дошила) — сохраняем именно его
+    const g = state.gPending || state.g;
     localStorage.setItem(STORE_KEY, JSON.stringify(
-        { view: state.view, sub: state.sub, halfMode: state.halfMode, g: state.g, settingsOpen: state.settingsOpen }
+        { view: state.view, sub: state.sub, halfMode: state.halfMode, g, settingsOpen: state.settingsOpen }
     ));
 }
 
@@ -1131,18 +1202,22 @@ function buildGroups() {
     const others = Object.keys(GROUPS).filter(id => !STATIC_IDS.includes(id));
     if (!others.length) return;
 
+    const chev = document.createElement("span");
+    chev.className = "chev";
+    chev.textContent = " ▾";
+    // кнопка отдельно, список отдельно (соседи в wrapper) — клики по пунктам
+    // не всплывают в кнопку, toggle не срабатывает «через раз»
+    const wrap = document.createElement("div");
+    wrap.className = "group-picker";
     pickerBtn = document.createElement("button");
-    pickerBtn.className = "chip group-picker";
+    pickerBtn.className = "chip";
+    pickerBtn.type = "button";
     pickerBtn.title = "Выбрать любую группу 24-го набора";
+    pickerBtn.setAttribute("aria-expanded", "false");
     pickerLabel = document.createElement("span");
     pickerLabel.textContent = "Все группы";
-    const chev = document.createElement("span");
-    chev.textContent = " ▾";
     pickerBtn.append(pickerLabel, chev);
-    pickerBtn.addEventListener("click", e => {
-        // клики внутри списка (по элементам) не должны заново открывать панель
-        if (pickerList && pickerList.contains(e.target)) return;
-        e.stopPropagation();
+    pickerBtn.addEventListener("click", () => {
         togglePicker(!pickerList.classList.contains("open"));
     });
 
@@ -1162,8 +1237,9 @@ function buildGroups() {
     pickerItemsBox = document.createElement("div");
     pickerItemsBox.className = "picker-list-x";
     pickerList.append(pickerSearch, pickerItemsBox);
-    pickerBtn.appendChild(pickerList);
-    groupRow.appendChild(pickerBtn);
+    wrap.append(pickerBtn, pickerList);
+    // ранее список был внутри кнопки — старые узлы чистятся автоматически в начале buildGroups
+    groupRow.appendChild(wrap);
     renderPickerItems();
 }
 function pickGroup(gid) {
@@ -1175,9 +1251,19 @@ function pickGroup(gid) {
     render();
 }
 function togglePicker(open) {
-    if (!pickerList) return;
+    if (!pickerList || !pickerBtn) return;
     pickerList.classList.toggle("open", open);
-    if (open) { pickerSearch.value = ""; renderPickerItems(); setTimeout(() => pickerSearch.focus(), 0); }
+    pickerBtn.setAttribute("aria-expanded", String(open));
+    pickerBtn.closest(".group-picker").classList.toggle("open", open);
+    if (open) {
+        pickerSearch.value = "";
+        renderPickerItems();
+        // на телефоне автопрошанка кидает клавиатуру и сдвигает список —
+        // фокус ставим только там, где привычен настоящий курсор/клавиатура
+        if (window.matchMedia("(hover: hover) and (min-width: 600px)").matches) {
+            setTimeout(() => pickerSearch.focus(), 0);
+        }
+    }
 }
 function renderPickerItems() {
     if (!pickerItemsBox) return;
@@ -1205,10 +1291,11 @@ function renderPickerItems() {
     }
 }
 document.addEventListener("click", e => {
-    if (pickerList && pickerList.classList.contains("open")
-        && !pickerList.contains(e.target) && e.target !== pickerBtn) {
-        togglePicker(false);
-    }
+    if (!pickerList || !pickerList.classList.contains("open")) return;
+    // зажатие клика внутри chip-кнопки пикера тоже считается «внутри» (кнопка — сосед списка)
+    const wrap = pickerList.parentElement;
+    if (wrap && wrap.contains(e.target)) return;
+    togglePicker(false);
 });
 document.addEventListener("keydown", e => {
     if (e.key === "Escape") togglePicker(false);
@@ -1221,6 +1308,109 @@ function renderGroups() {
         pickerLabel.textContent = isDyn ? GROUPS[state.g].code : "Все группы";
         pickerBtn.classList.toggle("active", isDyn);
     }
+}
+
+/* ══════════════════ ПЛАШКА ПЕРВОГО ЗАПУСКА «Выберите группу» ══════════════════
+   Показывается один раз — пока в localStorage нет отметки group-picked.
+   Выбор сохраняется обычным saveState(), так что при следующих заходах
+   сайт сразу открывается на выбранной группе. */
+
+// Флаг храним отдельно от schedule-settings, чтобы старым постоянным
+// посетителям тоже один раз предложить выбор.
+const GATE_KEY = "group-picked";
+
+let gateOverlay = null;
+
+let gateRefresh = null;
+
+function gateClose() {
+    if (!gateOverlay) return;
+    gateOverlay.remove();
+    gateOverlay = null;
+    gateRefresh = null;
+}
+
+function showGroupGate() {
+    try {
+        if (localStorage.getItem(GATE_KEY) || localStorage.getItem(STORE_KEY)) {
+            // сохранённое состояние уже есть (приходил раньше) — не спрашиваем
+            if (localStorage.getItem(GATE_KEY)) return;
+        }
+    } catch (e) { /* приватный режим — просто не показываем */ return; }
+
+    gateOverlay = document.createElement("div");
+    gateOverlay.className = "gate-overlay";
+
+    const card = document.createElement("div");
+    card.className = "gate-card";
+    card.innerHTML = `
+        <div class="gate-emoji">📅</div>
+        <div class="gate-title">Выберите свою группу</div>
+        <div class="gate-sub">Мы запомним выбор и сразу откроем нужное расписание при следующем заходе. Изменить можно в любой момент кнопкой «Все группы».</div>
+    `;
+
+    const search = document.createElement("input");
+    search.className = "gate-search";
+    search.type = "search";
+    search.placeholder = "Найти группу: КСК, ММР, ИСП…";
+
+    const list = document.createElement("div");
+    list.className = "gate-list";
+
+    const note = document.createElement("div");
+    note.className = "gate-note";
+    note.textContent = "30 групп 2024 года набора · факультет СПО";
+
+    const skip = document.createElement("button");
+    skip.type = "button";
+    skip.className = "gate-skip";
+    skip.textContent = "Не сейчас";
+    skip.addEventListener("click", () => {
+        try { localStorage.setItem(GATE_KEY, "1"); } catch (e) {}
+        gateClose();
+    });
+
+    const renderGateItems = () => {
+        const q = (search.value || "").trim().toLowerCase();
+        list.innerHTML = "";
+        let shown = 0;
+        for (const id of Object.keys(GROUPS)) {
+            const code = GROUPS[id].code;
+            if (q && !code.toLowerCase().includes(q)) continue;
+            shown++;
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "gate-btn";
+            b.textContent = code;
+            b.addEventListener("click", () => {
+                try { localStorage.setItem(GATE_KEY, "1"); } catch (e) {}
+                gateClose();                 // вершину закрыть ДО render() — чипы уже собраны
+                pickGroup(id);
+            });
+            list.appendChild(b);
+        }
+        if (!shown) {
+            const d = document.createElement("div");
+            d.style.cssText = "grid-column:1/-1;text-align:center;color:var(--text-faint);font-size:13px;padding:10px 0;";
+            d.textContent = "Не найдено";
+            list.appendChild(d);
+        }
+    };
+    // если schedule.json догрузится позже — список в открытой плашке обновится
+    gateRefresh = renderGateItems;
+    search.addEventListener("input", renderGateItems);
+    renderGateItems();
+
+    card.append(search, list, note, skip);
+    gateOverlay.append(card);
+    gateOverlay.addEventListener("click", e => { if (e.target === gateOverlay) skip.click(); });
+    document.addEventListener("keydown", function esc(e) {
+        if (gateOverlay && e.key === "Escape") { skip.click(); document.removeEventListener("keydown", esc); }
+        if (!gateOverlay) document.removeEventListener("keydown", esc);
+    });
+    document.body.appendChild(gateOverlay);
+
+    if (window.matchMedia("(hover: hover)").matches) search.focus();
 }
 
 function renderControls() {
@@ -1634,6 +1824,7 @@ settingsToggle.addEventListener("click", () => {
 });
 applySettingsPanel();
 render();
+showGroupGate();
 
 // подтягиваем общий рейтинг из облака и молча обновляем плашки у фамилий
 RATINGS.fetchAll().then(() => render(false));
