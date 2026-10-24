@@ -1270,8 +1270,11 @@ function renderPickerItems() {
     const q = (pickerSearch.value || "").trim().toLowerCase();
     pickerItemsBox.innerHTML = "";
     let shown = 0;
+    const seenCodes = new Set();   // динамические группы могут повторять коды статических
     for (const id of Object.keys(GROUPS)) {
         const grp = GROUPS[id];
+        if (seenCodes.has(grp.code)) continue;
+        seenCodes.add(grp.code);
         const b = document.createElement("button");
         b.type = "button";
         b.className = "picker-item" + (state.g === id ? " active" : "");
@@ -1374,8 +1377,11 @@ function showGroupGate() {
         const q = (search.value || "").trim().toLowerCase();
         list.innerHTML = "";
         let shown = 0;
+        const seenCodes = new Set();   // без дубликатов кодов (статические vs динамические)
         for (const id of Object.keys(GROUPS)) {
             const code = GROUPS[id].code;
+            if (seenCodes.has(code)) continue;
+            seenCodes.add(code);
             if (q && !code.toLowerCase().includes(q)) continue;
             shown++;
             const b = document.createElement("button");
