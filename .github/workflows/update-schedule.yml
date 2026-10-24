@@ -1,0 +1,60 @@
+# Обновление расписания всех групп 24-го набора (СПО КССГЕУ).
+# Каждые 2 часа: страница списка групп с cchgeu.ru, парсим свежие .xls,
+# складываем результат в schedule.json в корне репозитория (сайт читает его same-origin).
+
+name: update-schedule
+
+on:
+  schedule:
+    - cron: "17 */2 * * *"   # каждые 2 часа, на 17-й минуте (вне пиков часа)
+  workflow_dispatch: {}      # ручной запуск из вкладки Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-schedule
+  cancel-in-progress: true
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Зависимости
+        run: pip install xlrd
+
+      - name: Парсинг расписания
+        run: python parser.py .
+
+      - name: Проверка результата
+        run: |
+          test -f schedule.json
+          python - <<'PY'
+          import json
+          d = json.load(open("schedule.json", encoding="utf-8"))
+          assert len(d["groups"]) >= 20, "too few groups"
+          total = sum(len(g["lessons"]) for g in d["groups"].values())
+          assert total > 500, "too few lessons"
+          print("groups:", len(d["groups"]), "lessons:", total)
+          PY
+
+      - name: Commit schedule.json
+        run: |
+          git config user.name  "schedule-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add schedule.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "schedule: auto $(date -u +'%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
