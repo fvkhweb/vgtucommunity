@@ -854,6 +854,7 @@ const RATINGS_DB = {
 };
 
 const RATINGS_STORE_KEY = "teacher-ratings";
+const PENDING_KEY = "teacher-ratings-pending";   // недоставленные голоса ждут связи
 
 // Заголовки запросов. Новый формат ключей (sb_publishable_...) идёт только
 // в заголовке apikey; старый JWT-ключ anon (начинается с eyJ) — и в Bearer.
@@ -863,14 +864,40 @@ function supaHeaders(extra) {
     return Object.assign(h, extra || {});
 }
 
+// Запрос к таблице оценок: 3 попытки с таймаутом 9 с и паузами между ними —
+// одиночный fetch на дрожащем мобильном интернете часто виснет или рвётся.
+async function supaFetch(query, options, maxTries) {
+    const tries = maxTries || 3;
+    for (let i = 1; ; i++) {
+        const ac = new AbortController();
+        const tmr = setTimeout(() => ac.abort(), 9000);   // не ждём подвисший запрос 30+ секунд
+        try {
+            const r = await fetch(RATINGS_DB.url + "/rest/v1/rating_votes" + query,
+                Object.assign({ signal: ac.signal }, options || {}));
+            clearTimeout(tmr);
+            if (!r.ok) {
+                const err = new Error("HTTP " + r.status);
+                err.status = r.status;
+                if (r.status === 409) err.dup = true;     // это имя уже голосовало
+                throw err;
+            }
+            return r;
+        } catch (e) {
+            clearTimeout(tmr);
+            const st = e && e.status;
+            const retryable = !st || st >= 500;           // сеть/таймаут/ошибка сервера — повторяем; 4xx — нет
+            if (retryable && i < tries) {
+                await new Promise(res => setTimeout(res, 400 * i + Math.random() * 300));
+                continue;
+            }
+            throw e;
+        }
+    }
+}
+
 // GET-запрос к таблице оценок
 function supaGet(query) {
-    return fetch(RATINGS_DB.url + "/rest/v1/rating_votes" + query, {
-        headers: supaHeaders()
-    }).then(r => {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-    });
+    return supaFetch(query, { headers: supaHeaders() }).then(r => r.json());
 }
 
 const RATINGS = {
@@ -899,7 +926,16 @@ const RATINGS = {
     myVote(teacher) { return RATINGS.load().my[RATINGS._norm(teacher)] || 0; },
     myName() { return RATINGS.load().myName || ""; },
 
-    // Обновить агрегаты из облака. При ошибке связи — молча переходим в локальный вид.
+    // Обновить агрегаты из облака. При ошибке связи — молча переходим в локальный вид,
+    // но каждые 60 c пробуем ещё раз, пока не восстановим связность.
+    _fetchTmr: null,
+    scheduleFetchRetry() {
+        clearTimeout(RATINGS._fetchTmr);
+        RATINGS._fetchTmr = setTimeout(() => {
+            RATINGS._fetchTmr = null;
+            RATINGS.fetchAll();
+        }, 60000);
+    },
     async fetchAll() {
         if (RATINGS.mode !== "cloud") return;
         try {
@@ -917,6 +953,58 @@ const RATINGS = {
             RATINGS.offline = false;
         } catch (e) {
             RATINGS.offline = true;
+            RATINGS.scheduleFetchRetry();
+        }
+    },
+
+    // Очередь недоставленных голосов: если POST не прошёл из-за сети, голос
+    // сохраняется в localStorage и отправляется авто-повтором позже (загрузка
+    // страницы, возврат во вкладку, каждые 90 c). Ничего не теряется.
+    dequeue(key) {
+        const l = RATINGS.loadPending().filter(p => p.teacher !== key);
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify(l)); } catch (e) {}
+    },
+    enqueue(v) {
+        const l = RATINGS.loadPending();
+        if (l.some(p => p.teacher === v.teacher)) return;   // за препода ждёт максимум один голос
+        l.push(v);
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify(l)); } catch (e) {}
+    },
+    loadPending() {
+        try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"); } catch (e) { return []; }
+    },
+    async processPending() {
+        if (RATINGS.mode !== "cloud" || !("navigator" in window)) return;
+        const list = RATINGS.loadPending();
+        if (!list.length) return;
+        let changed = false;
+        for (const v of list) {
+            try {
+                await supaFetch("", {
+                    method: "POST",
+                    headers: supaHeaders({ "Content-Type": "application/json", Prefer: "return=minimal" }),
+                    body: JSON.stringify({ teacher: v.teacher, voter_name: v.name, score: v.score })
+                });
+                RATINGS.dequeue(v.teacher);
+                const d = RATINGS.load();
+                d.my[v.teacher] = v.score;
+                d.myName = v.name;
+                RATINGS.save(d);
+                changed = true;
+            } catch (e) {
+                if (e && e.dup) {                // такое имя уже голосовало ранее — учтено
+                    RATINGS.dequeue(v.teacher);
+                    const d = RATINGS.load();
+                    d.my[v.teacher] = v.score;
+                    RATINGS.save(d);
+                    changed = true;
+                }
+                // сеть всё ещё не хоче — оставляем в очереди до следующего тика
+            }
+        }
+        if (changed) {
+            try { await RATINGS.fetchAll(); } catch (e) {}
+            if (typeof render === "function") render(false);
         }
     },
 
@@ -924,22 +1012,7 @@ const RATINGS = {
     // локально — гистограмма своих голосов, как раньше.
     async vote(teacher, score, name) {
         const key = RATINGS._norm(teacher);
-        if (RATINGS.mode === "cloud" && !RATINGS.offline) {
-            const r = await fetch(RATINGS_DB.url + "/rest/v1/rating_votes", {
-                method: "POST",
-                headers: supaHeaders({
-                    "Content-Type": "application/json",
-                    Prefer: "return=minimal"
-                }),
-                body: JSON.stringify({ teacher: key, voter_name: name, score: score })
-            });
-            if (!r.ok) {
-                const err = new Error("HTTP " + r.status);
-                if (r.status === 409) err.dup = true;   // это имя уже голосовало
-                throw err;
-            }
-            await RATINGS.fetchAll();
-        } else {
+        if (RATINGS.mode !== "cloud") {
             const data = RATINGS.load();
             if (!data.votes[key]) data.votes[key] = {};
             const prev = data.my[key] || 0;
@@ -948,12 +1021,37 @@ const RATINGS = {
                 if (!data.votes[key][prev]) delete data.votes[key][prev];
             }
             if (prev !== score) data.votes[key][score] = (data.votes[key][score] || 0) + 1;
+            data.my[key] = score;
+            data.myName = name;
             RATINGS.save(data);
+            return;
         }
-        const data = RATINGS.load();
-        data.my[key] = score;
-        data.myName = name;
-        RATINGS.save(data);
+        // cloud: POST всегда пытаемся в облако — даже если GET агрегатов фейлился,
+        // «offline» из прошлого неудачного GET не означает, что пост тоже провалится.
+        try {
+            await supaFetch("", {
+                method: "POST",
+                headers: supaHeaders({ "Content-Type": "application/json", Prefer: "return=minimal" }),
+                body: JSON.stringify({ teacher: key, voter_name: name, score: score })
+            });
+        } catch (e) {
+            if (e && e.dup) throw e;             // имя уже голосовало — покажем честно
+            // сеть не пустила: ставим в очередь, звёздочку показываем как выбранную
+            RATINGS.enqueue({ teacher: key, score: score, name: name });
+            const d = RATINGS.load();
+            d.my[key] = score;
+            d.myName = name;
+            RATINGS.save(d);
+            const q = new Error("нет связи — отложено");
+            q.queued = true;
+            throw q;
+        }
+        const d2 = RATINGS.load();
+        d2.my[key] = score;
+        d2.myName = name;
+        RATINGS.save(d2);
+        RATINGS.dequeue(key);                    // возможно, тут ждал более ранний недоставленный
+        try { await RATINGS.fetchAll(); } catch (e) {}
     }
 };
 
@@ -1622,6 +1720,8 @@ function openRatePopup(teacher) {
         const bits = [];
         if (RATINGS.mode === "local")
             bits.push("Общий рейтинг ещё не настроен: эта оценка сохранится только на вашем устройстве.");
+        else if (RATINGS.loadPending().some(p => p.teacher === RATINGS._norm(teacher)))
+            bits.push("Оценка отправляется на сервер — она появится у всех, как только восстановится интернет.");
         else if (RATINGS.myVote(teacher))
             bits.push("Ваша оценка учтена. У каждого имени — один голос за преподавателя.");
         if (bits.length) {
@@ -1650,13 +1750,20 @@ function openRatePopup(teacher) {
         } catch (e) {
             const msg = document.createElement("div");
             msg.className = "rate-note";
-            msg.style.color = "rgba(251, 113, 133, .9)";
-            msg.textContent = e.dup
-                ? "Имя «" + name + "» уже голосовало за этого преподавателя — одно имя = один голос (можно добавить инициалы, например «Аня С.»)."
-                : (RATINGS.mode === "cloud"
-                    ? "Не получилось отправить оценку. Проверьте интернет и попробуйте ещё раз."
-                    : "Не удалось сохранить оценку на устройстве.");
+            if (e && e.queued) {
+                msg.style.color = "rgba(250, 200, 120, .95)";
+                msg.textContent = "Интернет подвёлся — оценка сохранена и отправится на сервер автоматически, как только связь появится.";
+            } else if (e && e.dup) {
+                msg.style.color = "rgba(251, 113, 133, .9)";
+                msg.textContent = "Имя «" + name + "» уже голосовало за этого преподавателя — одно имя = один голос (можно добавить инициалы, например «Аня С.»).";
+            } else {
+                msg.style.color = "rgba(251, 113, 133, .9)";
+                msg.textContent = RATINGS.mode === "cloud"
+                    ? "Не получилось отправить оценку — она сохранена и отправится автоматически. Проверьте интернет."
+                    : "Не удалось сохранить оценку на устройстве.";
+            }
             card.appendChild(msg);
+            refresh();                 //.UpdateList звёздочек/плашки: голос мог встать в очередь
         }
     }
     refresh();
@@ -1833,7 +1940,9 @@ render();
 showGroupGate();
 
 // подтягиваем общий рейтинг из облака и молча обновляем плашки у фамилий
-RATINGS.fetchAll().then(() => render(false));
+// Общий рейтинг: сначала (пере)читаем агрегаты из облака, потом доталкиваем
+// всё, что не доехало в прошлые сессии, и показываем результат.
+RATINGS.fetchAll().then(() => RATINGS.processPending()).then(() => render(false));
 
 // динамическое расписание всех групп 24-набора (генерируется GitHub Actions).
 // fetch same-origin; при недоступности тихо остаёмся на вшитой статике КСК/ММР
@@ -1843,6 +1952,12 @@ fetch("schedule.json", { cache: "no-store" })
     .catch(() => {});
 
 // обновляем подсветку «сейчас/прошло» раз в минуту — тихо, без анимаций
+// Доталкиваем недоставленные голоса: по таймеру и при возврате во вкладку.
+setInterval(() => { if (RATINGS.loadPending().length) RATINGS.processPending(); }, 90000);
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && RATINGS.loadPending().length) RATINGS.processPending();
+});
+
 setInterval(() => render(false), 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) render(false); });
 </script>
