@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Моё расписание</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+<style>
+    :root {
+        --bg: #0f1115;
+        --bg-soft: #151821;
+        --card: #191d28;
+        --card-border: #262b3a;
+        --text: #e8eaf0;
+        --text-dim: #9aa1b2;
+        --text-faint: #5d6476;
+        --accent: #4f8cff;
+        --accent-soft: rgba(79, 140, 255, .14);
+        --accent-border: rgba(79, 140, 255, .35);
+        --now: #2dd4bf;
+        --now-soft: rgba(45, 212, 191, .12);
+        --chips-row: #222738;
+        --badge-lec-bg: rgba(79, 140, 255, .15);
+        --badge-lec-t: #8db3ff;
+        --badge-lab-bg: rgba(45, 212, 191, .13);
+        --badge-lab-t: #5fe0d0;
+        --badge-pra-bg: rgba(251, 191, 36, .13);
+        --badge-pra-t: #fcd34d;
+    }
+
+    /* Тема «Янтарь» — тоже тёмная, но в тёплых тонах: тёмно-коричневый графит
+       + янтарный акцент. Переключается в настройках (state.theme). */
+    [data-theme="amber"] {
+        --bg: #14100b;
+        --bg-soft: #1b1510;
+        --card: #211a12;
+        --card-border: #352b1d;
+        --text: #f0e9dd;
+        --text-dim: #b3a68d;
+        --text-faint: #6f6350;
+        --accent: #f5a524;
+        --accent-soft: rgba(245, 165, 36, .13);
+        --accent-border: rgba(245, 165, 36, .38);
+        --now: #34d399;
+        --now-soft: rgba(52, 211, 153, .11);
+        --chips-row: #2b2218;
+        --badge-lec-bg: rgba(167, 139, 250, .16);
+        --badge-lec-t: #c4b5fd;
+        --badge-lab-bg: rgba(52, 211, 153, .14);
+        --badge-lab-t: #6ee7b7;
+        --badge-pra-bg: rgba(245, 165, 36, .14);
+        --badge-pra-t: #fbbf24;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        min-height: 100vh;
+        padding: 24px 20px 60px;
+        transition: background .35s ease, color .35s ease;
+    }
+
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    main { margin-top: 22px; }
+
+    /* ---------- Шапка ---------- */
+    header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+    h1 { font-size: 26px; font-weight: 650; letter-spacing: .2px; }
+    h1 .group { color: var(--text-dim); font-weight: 500; }
+    .week-badge {
+        margin-left: auto;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid var(--accent-border);
+        padding: 7px 14px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .countdown-pill {
+        background: var(--now-soft);
+        color: var(--now);
+        border: 1px solid rgba(45, 212, 191, .3);
+        padding: 7px 14px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: background .3s, color .3s, border-color .3s;
+    }
+    .countdown-pill.started {
+        background: rgba(251, 191, 36, .15);
+        color: #fcd34d;
+        border-color: rgba(251, 191, 36, .4);
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    /* ---------- Панель управления ---------- */
+    .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 0;
+    }
+    .chip-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        background: var(--bg-soft);
+        border: 1px solid var(--card-border);
+        padding: 6px;
+        border-radius: 12px;
+    }
+    .chip-row .label {
+        align-self: center;
+        color: var(--text-faint);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        padding: 0 6px;
+        user-select: none;
+    }
+    .chip {
+        padding: 7px 14px;
+        border-radius: 9px;
+        border: none;
+        background: transparent;
+        color: var(--text-dim);
+        font-size: 14px;
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background .15s, color .15s, transform .12s;
+        white-space: nowrap;
+    }
+    .chip:hover { color: var(--text); background: var(--chips-row); }
+    .chip:active { transform: scale(.94); }
+    .chip.active { background: var(--accent); color: #fff; }
+    .chip.today-hint { position: relative; }
+    .chip.today-hint::after {
+        content: "";
+        position: absolute;
+        bottom: 3px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px; height: 4px;
+        border-radius: 50%;
+        background: var(--now);
+    }
+    .chip.active.today-hint::after { background: #fff; }
+
+    /* --- выпадающий список всех групп --- */
+    #groupRow .group-picker { position: relative; display: inline-flex; }
+    .picker-list {
+        position: absolute; top: calc(100% + 8px); left: 0; z-index: 60;
+        width: 290px; max-width: 86vw;
+        background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, .55);
+        padding: 9px; display: none;
+    }
+    .picker-list.open { display: block; animation: picker-in .18s ease both; }
+    @keyframes picker-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+    .picker-search {
+        width: 100%; box-sizing: border-box; margin-bottom: 8px;
+        background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 9px;
+        color: var(--text); font: inherit; font-size: 14px; padding: 8px 11px; outline: none;
+    }
+    .picker-search:focus { border-color: var(--accent); }
+    .picker-list-x { display: flex; flex-direction: column; gap: 3px; max-height: 300px; overflow: auto; }
+    .picker-item {
+        all: unset; display: block; padding: 7px 10px; border-radius: 8px;
+        color: var(--text-dim); font-size: 14px; cursor: pointer;
+    }
+    .picker-item:hover { background: var(--accent-soft); color: var(--text); }
+    .picker-item.active { color: var(--accent); font-weight: 600; }
+    .picker-empty { color: var(--text-faint); font-size: 13px; text-align: center; padding: 10px 0; }
+    .group-picker .chev { font-size: 10px; transition: transform .25s ease; }
+    .group-picker.open .chev { transform: rotate(180deg); }
+
+    /* ---------- Плашка первого запуска «Выберите группу» ---------- */
+    .gate-overlay {
+        position: fixed; inset: 0; z-index: 80;
+        background: rgba(5, 7, 12, .66);
+        backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+        animation: fade-in .2s ease both;
+    }
+    .gate-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        padding: 24px 22px 18px;
+        width: min(100%, 430px);
+        animation: pop-in .25s ease both;
+    }
+    .gate-emoji { font-size: 30px; }
+    .gate-title { font-size: 19px; font-weight: 650; margin-top: 10px; }
+    .gate-sub { color: var(--text-dim); font-size: 13.5px; line-height: 1.4; margin-top: 6px; }
+    .gate-search {
+        width: 100%; box-sizing: border-box; margin-top: 14px;
+        background: var(--bg-soft); border: 1px solid var(--card-border); border-radius: 10px;
+        color: var(--text); font: inherit; font-size: 14px; padding: 9px 12px; outline: none;
+    }
+    .gate-search:focus { border-color: var(--accent); }
+    .gate-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 7px;
+        margin-top: 12px;
+        max-height: 42vh;
+        overflow-y: auto;
+    }
+    .gate-btn {
+        all: unset; cursor: pointer; box-sizing: border-box;
+        padding: 10px 6px; text-align: center;
+        border-radius: 10px;
+        background: var(--bg-soft);
+        border: 1px solid var(--card-border);
+        color: var(--text-dim);
+        font-size: 13px; font-weight: 600;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        transition: background .15s, color .15s, border-color .15s, transform .12s;
+    }
+    .gate-btn:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+    .gate-btn:active { transform: scale(.96); }
+    .gate-note { color: var(--text-faint); font-size: 12px; margin-top: 14px; text-align: center; }
+    .gate-skip {
+        all: unset; cursor: pointer;
+        color: var(--text-faint); font-size: 12.5px;
+        text-decoration: underline dashed;
+        display: block; margin: 8px auto 0; padding: 4px 10px;
+    }
+    .gate-skip:hover { color: var(--text-dim); }
+
+    /* ---------- Блок «Настройки» ---------- */
+    .settings-toggle {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 16px;
+        background: var(--bg-soft);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        color: var(--text-dim);
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        user-select: none;
+        transition: color .15s, border-color .15s, background .15s;
+    }
+    .settings-toggle:hover { color: var(--text); border-color: #353c50; }
+    .settings-toggle.open { color: var(--accent); border-color: var(--accent-border); }
+    .settings-toggle .gear {
+        display: inline-block;
+        font-size: 15px;
+        transition: transform .4s cubic-bezier(.2, .8, .3, 1.4);
+    }
+    .settings-toggle.open .gear { transform: rotate(120deg); }
+    .settings-toggle .chev {
+        font-size: 10px;
+        transition: transform .3s ease;
+    }
+    .settings-toggle.open .chev { transform: rotate(180deg); }
+
+    .settings-panel {
+        display: grid;
+        grid-template-rows: 0fr;          /* свёрнуто: плавное раскрытие через 1fr */
+        opacity: 0;
+        transform: translateY(-6px);
+        visibility: hidden;
+        transition: grid-template-rows .35s ease, opacity .22s ease, transform .3s ease,
+                    visibility 0s linear .35s;
+    }
+    .settings-panel.open {
+        grid-template-rows: 1fr;
+        margin-top: 12px;
+        opacity: 1;
+        transform: none;
+        visibility: visible;
+        transition: grid-template-rows .35s ease, opacity .28s ease .08s,
+                    transform .32s ease .08s, visibility 0s;
+    }
+    .settings-inner {
+        overflow: hidden;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    /* ---------- День (одиночный вид) ---------- */
+    .day-title {
+        font-size: 21px;
+        font-weight: 650;
+        margin: 6px 0 18px;
+    }
+    .day-title .date { color: var(--text-dim); font-weight: 500; font-size: 17px; }
+
+    .slot { display: grid; grid-template-columns: 130px 1fr; gap: 14px; margin-bottom: 12px; }
+    .slot-time {
+        text-align: right;
+        color: var(--text-dim);
+        font-size: 14px;
+        font-weight: 600;
+        padding-top: 14px;
+        font-variant-numeric: tabular-nums;
+        white-space: pre-line;
+    }
+    .slot-time .status {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+    }
+    .slot-time .status.now { color: var(--now); }
+    .slot-time .status.past { color: var(--text-faint); }
+
+    .lessons { display: flex; flex-direction: column; gap: 8px; }
+    .lesson {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        padding: 13px 16px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        transition: border-color .15s, transform .18s, box-shadow .18s;
+    }
+    .lesson:hover {
+        border-color: #353c50;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, .25);
+    }
+    .lesson.now {
+        border-color: rgba(45, 212, 191, .5);
+        background: linear-gradient(90deg, var(--now-soft), var(--card) 45%);
+    }
+    .now-pill {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        background: var(--now-soft);
+        color: var(--now);
+        border: 1px solid rgba(45, 212, 191, .35);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        padding: 3px 9px;
+        border-radius: 999px;
+    }
+    .now-pill::before {
+        content: "";
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: var(--now);
+    }
+    .lesson.now .now-pill { display: inline-flex; }
+
+    .l-main { min-width: 0; flex: 1 1 220px; }
+    .subject { font-weight: 600; line-height: 1.35; }
+    .teacher {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: var(--text-dim);
+        font-size: 13px;
+        margin-top: 3px;
+    }
+
+    /* ---------- Рейтинг преподавателей ---------- */
+    .teacher-name {
+        background: none;
+        border: none;
+        border-bottom: 1px dashed rgba(154, 161, 178, .55);
+        padding: 0;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: inherit;
+        color: inherit;
+        transition: color .15s, border-color .15s;
+    }
+    .teacher-name:hover { color: var(--accent); border-color: var(--accent); }
+    .rating-chip {
+        background: var(--chips-row);
+        border: none;
+        color: var(--now);
+        padding: 2px 9px;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: transform .12s, background .15s, color .15s;
+    }
+    .rating-chip:hover { transform: translateY(-1px); background: #2a3044; }
+    .rating-chip.voted { color: #fcd34d; }
+
+    /* Окошко оценки */
+    .rate-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(5, 7, 12, .62);
+        backdrop-filter: blur(3px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fade-in .2s ease both;
+    }
+    .rate-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        padding: 22px 26px;
+        width: calc(100% - 48px);
+        max-width: 400px;
+        animation: pop-in .25s ease both;
+    }
+    .rate-card h3 { font-size: 17px; font-weight: 650; line-height: 1.35; }
+    .rate-sub { color: var(--text-faint); font-size: 13px; margin-top: 6px; }
+    .rate-stats { color: var(--now); font-weight: 600; font-size: 14px; margin-top: 12px; }
+    .rate-stars { display: flex; gap: 6px; margin-top: 14px; }
+    .rate-star {
+        flex: 1;
+        padding: 10px 0;
+        font-family: inherit;
+        font-size: 19px;
+        background: var(--bg-soft);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        color: var(--text-dim);
+        cursor: pointer;
+        transition: transform .12s, color .15s, border-color .15s, background .15s;
+    }
+    .rate-star:hover {
+        transform: translateY(-3px) scale(1.04);
+        color: #fcd34d;
+        border-color: rgba(251, 191, 36, .4);
+        background: rgba(251, 191, 36, .08);
+    }
+    .rate-star.picked {
+        color: #fcd34d;
+        border-color: rgba(251, 191, 36, .5);
+        background: rgba(251, 191, 36, .12);
+    }
+    .rate-note { color: var(--text-faint); font-size: 12.5px; margin-top: 10px; }
+    .rate-input {
+        width: 100%;
+        margin-top: 14px;
+        padding: 11px 14px;
+        font-family: inherit;
+        font-size: 14px;
+        background: var(--bg-soft);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        color: var(--text);
+        transition: border-color .15s;
+    }
+    .rate-input::placeholder { color: var(--text-faint); }
+    .rate-input:focus { outline: none; border-color: var(--accent); }
+    .rate-input.err {
+        border-color: rgba(251, 113, 133, .6);
+        animation: shake .3s ease;
+    }
+    .rate-stars.disabled { opacity: .45; pointer-events: none; }
+    .rate-list {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--card-border);
+        max-height: 170px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .rate-list-title {
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .6px;
+        color: var(--text-faint);
+        margin-bottom: 2px;
+    }
+    .rate-vote {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 13px;
+        color: var(--text-dim);
+    }
+    .rate-vote .score { color: #fcd34d; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .rate-vote .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rate-vote.own .who { color: var(--now); }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25%      { transform: translateX(-5px); }
+        75%      { transform: translateX(5px); }
+    }
+    .note { color: var(--text-faint); font-size: 12.5px; margin-top: 3px; }
+
+    .l-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .badge {
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+    .badge.type-lec { background: var(--badge-lec-bg); color: var(--badge-lec-t); }
+    .badge.type-lab { background: var(--badge-lab-bg); color: var(--badge-lab-t); }
+    .badge.type-pra { background: var(--badge-pra-bg); color: var(--badge-pra-t); }
+    .badge.sub { background: var(--chips-row); color: var(--text-dim); }
+    .badge.room { background: var(--chips-row); color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .empty-day {
+        color: var(--text-dim);
+        background: var(--bg-soft);
+        border: 1px dashed var(--card-border);
+        border-radius: 14px;
+        padding: 26px;
+        text-align: center;
+        font-size: 14.5px;
+    }
+
+    /* ---------- Неделя ---------- */
+    .week-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 14px;
+    }
+    .week-day {
+        background: var(--bg-soft);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        padding: 14px;
+    }
+    .week-day.today { border-color: var(--accent-border); }
+    .week-day h3 {
+        font-size: 15.5px;
+        font-weight: 650;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .today-tag {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--accent);
+        background: var(--accent-soft);
+        padding: 2px 8px;
+        border-radius: 999px;
+    }
+    .glance { display: flex; flex-direction: column; gap: 6px; }
+    .glance-item {
+        display: grid;
+        grid-template-columns: 52px 1fr;
+        gap: 10px;
+        align-items: baseline;
+    }
+    .glance-item.now .glance-time { color: var(--now); }
+    .glance-item.now .glance-text { color: var(--now); }
+    .glance-time {
+        color: var(--text-faint);
+        font-size: 12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+    .glance-text { font-size: 13.5px; line-height: 1.35; }
+    .glance-text .x { color: var(--text-faint); }
+
+    /* ---------- Анимации ---------- */
+    @keyframes fade-in {
+        from { opacity: 0; }
+    }
+    @keyframes rise-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: none; }
+    }
+    @keyframes pop-in {
+        from { opacity: 0; transform: translateY(14px) scale(.985); }
+        to   { opacity: 1; transform: none; }
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50%      { opacity: .3; }
+    }
+
+    /* тихое обновление по таймеру — без повторных анимаций появления */
+    main.quiet * { animation: none !important; }
+
+    .day-title { animation: rise-in .35s ease both; }
+    .slot      { animation: pop-in .32s ease both; animation-delay: calc(var(--i, 0) * 45ms); }
+    .lesson    { animation: pop-in .3s ease both; animation-delay: calc(var(--i, 0) * 45ms + var(--d, 0ms)); }
+    .empty-day { animation: pop-in .32s ease both; }
+    .week-day  { animation: pop-in .35s ease both; animation-delay: calc(var(--i, 0) * 55ms); }
+    .week-day:hover { border-color: #353c50; }
+    .glance-item { animation: pop-in .3s ease both; animation-delay: calc(var(--i, 0) * 55ms + var(--d, 0ms)); }
+
+    .chip.today-hint::after { animation: pulse 2.2s ease-in-out infinite; }
+    .now-pill::before { animation: pulse 1.8s ease-in-out infinite; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: .01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: .01ms !important;
+        }
+    }
+</style>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=113761418', 'ym');
+
+    ym(113761418, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/113761418" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>Моё расписание <span class="group" id="groupLabel">— КСК-241о</span></h1>
+        <div class="week-badge" id="weekBadge"></div>
+        <div class="countdown-pill" id="countdownBadge" hidden></div>
+    </header>
+
+    <div class="controls">
+        <div class="chip-row" id="viewsRow" role="tablist" aria-label="Вид"></div>
+        <div class="chip-row" id="groupRow" role="group" aria-label="Группа">
+            <span class="label">Группа</span>
+        </div>
+        <button class="settings-toggle" id="settingsToggle" aria-expanded="false" aria-controls="settingsPanel">
+            <span class="gear">⚙️</span>
+            <span>Настройки</span>
+            <span class="chev">▼</span>
+        </button>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-inner">
+            <div class="chip-row" id="subRow" role="group" aria-label="Подгруппа">
+                <span class="label">Подгруппа</span>
+            </div>
+            <div class="chip-row" id="halfRow" role="group" aria-label="Чётность недели">
+                <span class="label">Неделя</span>
+            </div>
+            <div class="chip-row" id="themeRow" role="group" aria-label="Тема оформления">
+                <span class="label">Тема</span>
+            </div>
+        </div>
+    </div>
+
+    <main id="main"></main>
+</div>
+
+<script>
+"use strict";
+
+/* ══════════════════ ДАННЫЕ (вшитые, как в консольной версии) ══════════════════
+   Каждая строка: день|номер пары|TOP/BOTTOM|подгруппа|аудитория|week_only|название
+   TOP = числитель, BOTTOM = знаменатель. Подгруппа 0 = обе подгруппы.
+   Поле week_only сохранено как в исходнике (в exe оно тоже не влияет на показ). */
+
+const DAYS = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+const DAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня",
+                "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+const TIMES = [
+    "08:30 - 10:05", "10:15 - 11:50", "12:00 - 13:35",
+    "14:00 - 15:35", "15:45 - 17:20", "17:30 - 19:05", "19:15 - 20:50"
+];
+
+const GROUPS = {
+    /* Расписание группы брата — из файла MMR_241o.xls (осенний семестр 2026/27).
+       Числитель = первая строка слота в файле, знаменатель = вторая.
+       ВСЕ пары 3-й подгруппы (в файле они в столбцах «3 п/г») удалены — у группы её нет.
+       Одинаковые пары у двух подгрупп (физкультура) сведены в одну «общую». */
+    mmr: { code: "ММР-241о", raw: `
+Понедельник|0|TOP|0|226/3|0|Лекционные занятия Установка и регулировка элементов мехатронных систем (Полухин А. К.)
+Понедельник|0|BOTTOM|0|422/3|0|Лекционные занятия Монтаж мехатронных систем (Коротков В. Н.)
+Понедельник|1|TOP|0|226/3|0|Практические занятия Установка и регулировка элементов мехатронных систем (Полухин А. К.)
+Понедельник|1|BOTTOM|0|307/3|0|Практические занятия Монтаж мехатронных систем (Коротков В. Н.)
+Понедельник|2|TOP|0|226/3|0|Практические занятия Установка и регулировка элементов мехатронных систем (Полухин А. К.)
+Понедельник|2|BOTTOM|0|307/3|0|Практические занятия Монтаж мехатронных систем (Коротков В. Н.)
+Понедельник|3|TOP|0|423/3|0|Лекционные занятия Программирование мехатронных систем (Коротков В. Н.)
+Понедельник|3|BOTTOM|0|234/3|0|Лекционные занятия Информационные технологии в профессиональной деятельности (Демихова И. В.)
+Понедельник|4|BOTTOM|0|407/3|0|Практические занятия Кураторский час (Рязанова О. А.)
+Вторник|0|TOP|0|—|0|Практические занятия Физическая культура (Котов Е. В.)
+Вторник|0|BOTTOM|0|—|0|Практические занятия Физическая культура (Котов Е. В.)
+Вторник|1|TOP|0|230б/3|0|Лекционные занятия Бережливое производство (Милованова Н. С.)
+Вторник|1|BOTTOM|0|230б/3|0|Лекционные занятия Основы финансовой грамотности (Милованова Н. С.)
+Вторник|2|TOP|0|230б/3|0|Практические занятия Бережливое производство (Милованова Н. С.)
+Вторник|2|BOTTOM|0|230б/3|0|Практические занятия Основы финансовой грамотности (Милованова Н. С.)
+Вторник|3|TOP|0|401/3|0|Лекционные занятия Физическая культура 2 нед. (Котов Е. В.)
+Среда|0|TOP|1|226/3|0|Лабораторные занятия Установка и регулировка элементов мехатронных систем 8 нед. (Полухин А. К.)
+Среда|0|TOP|2|307/3|0|Лабораторные занятия Программирование мехатронных систем (Коротков В. Н.)
+Среда|1|TOP|1|226/3|0|Лабораторные занятия Установка и регулировка элементов мехатронных систем 8 нед. (Полухин А. К.)
+Среда|1|TOP|2|307/3|0|Лабораторные занятия Программирование мехатронных систем (Коротков В. Н.)
+Среда|1|BOTTOM|1|442/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Малютина Ю. В.)
+Среда|2|TOP|1|307/3|0|Лабораторные занятия Программирование мехатронных систем (Коротков В. Н.)
+Среда|2|TOP|2|226/3|0|Лабораторные занятия Установка и регулировка элементов мехатронных систем 8 нед. (Полухин А. К.)
+Среда|2|BOTTOM|1|442/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Малютина Ю. В.)
+Среда|3|TOP|1|307/3|0|Лабораторные занятия Программирование мехатронных систем (Коротков В. Н.)
+Среда|3|TOP|2|226/3|0|Лабораторные занятия Установка и регулировка элементов мехатронных систем 8 нед. (Полухин А. К.)
+Четверг|1|BOTTOM|0|424/3|0|Лекционные занятия Монтаж мехатронных систем (Коротков В. Н.)
+Четверг|2|BOTTOM|0|424/3|0|Лекционные занятия Программирование мехатронных систем (Коротков В. Н.)
+Пятница|0|TOP|0|226/3|0|Лекционные занятия Основы вычислительной техники (Полухин А. К.)
+Пятница|0|BOTTOM|1|226/3|0|Лабораторные занятия Основы вычислительной техники (Полухин А. К.)
+Пятница|0|BOTTOM|2|137/3|0|Практические занятия Информационные технологии в профессиональной деятельности (Демихова И. В.)
+Пятница|1|TOP|0|226/3|0|Лекционные занятия Установка и регулировка элементов мехатронных систем (Полухин А. К.)
+Пятница|1|BOTTOM|1|226/3|0|Лабораторные занятия Основы вычислительной техники (Полухин А. К.)
+Пятница|1|BOTTOM|2|137/3|0|Практические занятия Информационные технологии в профессиональной деятельности (Демихова И. В.)
+Пятница|2|TOP|2|442/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Малютина Ю. В.)
+Пятница|2|BOTTOM|1|137/3|0|Практические занятия Информационные технологии в профессиональной деятельности (Демихова И. В.)
+Пятница|2|BOTTOM|2|226/3|0|Лабораторные занятия Основы вычислительной техники (Полухин А. К.)
+Пятница|3|TOP|2|442/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Малютина Ю. В.)
+Пятница|3|BOTTOM|1|137/3|0|Практические занятия Информационные технологии в профессиональной деятельности (Демихова И. В.)
+Пятница|3|BOTTOM|2|226/3|0|Лабораторные занятия Основы вычислительной техники (Полухин А. К.)
+` },
+    /* Твоя группа — без изменений */
+    ksk: { code: "КСК-241о", raw: `
+Понедельник|0|BOTTOM|2|223а/3|0|Лабораторные занятия Основы алгоритмизации и программирования (Залхаева Л. Э.)
+Понедельник|1|BOTTOM|2|223а/3|0|Лабораторные занятия Основы алгоритмизации и программирования (Залхаева Л. Э.)
+Понедельник|2|BOTTOM|1|223а/3|0|Лабораторные занятия Основы алгоритмизации и программирования (Залхаева Л. Э.)
+Понедельник|2|BOTTOM|2|405/3|0|Лабораторные занятия Основы проектирования цифровой техники (Федорова Е. Н.)
+Понедельник|3|TOP|0|201/3|0|Лекционные занятия Основы проектирования цифровой техники (Федорова Е. Н.)
+Понедельник|3|BOTTOM|1|223а/3|0|Лабораторные занятия Основы алгоритмизации и программирования (Залхаева Л. Э.)
+Понедельник|3|BOTTOM|2|405/3|0|Лабораторные занятия Основы проектирования цифровой техники (Федорова Е. Н.)
+Понедельник|4|TOP|0|201/3|0|Лекционные занятия Основы проектирования цифровой техники (Федорова Е. Н.)
+Понедельник|5|TOP|0|401/3|2|Лекционные занятия Физическая культура 2 нед. (Котов Е. В.)
+Вторник|0|TOP|0|101/3|12|Лекционные занятия Информационные технологии 12 нед. (Фомин Р. В.) перевод 29.09.26 в ауд. 423/3
+Вторник|0|BOTTOM|0|202/3|0|Лекционные занятия Техническое обслуживание и ремонт аппаратной части компьютерных систем и комплексов (Петрова Г. Н.)
+Вторник|1|TOP|0|101/3|12|Лекционные занятия Информационные технологии 12 нед. (Фомин Р. В.) перевод 29.09.26 в ауд. 423/3
+Вторник|1|BOTTOM|0|202/3|0|Лекционные занятия Техническое обслуживание и ремонт аппаратной части компьютерных систем и комплексов (Петрова Г. Н.)
+Вторник|2|BOTTOM|0|—|0|Практические занятия Физическая культура (Котов Е. В.)
+Среда|0|BOTTOM|1|320/3|0|Лабораторные занятия Эксплуатация аппаратного обеспечения ПК, установка и конфигурирование периферийного оборудования (Надеева И. А.) перевод 23.09.26 в ауд. 234/3
+Среда|0|BOTTOM|2|324/3|8|Лабораторные занятия Техническое обслуживание и ремонт аппаратной части компьютерных систем и комплексов 8 нед. (Петрова Г. Н.) перевод 23.09.26 в ауд. 1/3
+Среда|1|TOP|1|411а/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Попова М. С.)
+Среда|1|TOP|2|101/3|0|Лабораторные занятия Информационные технологии (Фомин Р. В.)
+Среда|1|BOTTOM|1|320/3|0|Лабораторные занятия Эксплуатация аппаратного обеспечения ПК, установка и конфигурирование периферийного оборудования (Надеева И. А.) перевод 23.09.26 в ауд. 234/3
+Среда|1|BOTTOM|2|324/3|8|Лабораторные занятия Техническое обслуживание и ремонт аппаратной части компьютерных систем и комплексов 8 нед. (Петрова Г. Н.) перевод 23.09.26 в ауд. 1/3
+Среда|2|TOP|1|411а/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Попова М. С.)
+Среда|2|TOP|2|101/3|0|Лабораторные занятия Информационные технологии (Фомин Р. В.)
+Среда|2|BOTTOM|1|324/3|8|Лабораторные занятия Техническое обслуживание и ремонт аппаратной части компьютерных систем и комплексов 8 нед. (Петрова Г. Н.)
+Среда|2|BOTTOM|2|320/3|0|Лабораторные занятия Эксплуатация аппаратного обеспечения ПК, установка и конфигурирование периферийного оборудования (Надеева И. А.)
+Среда|3|TOP|1|101/3|0|Лабораторные занятия Информационные технологии (Фомин Р. В.)
+Среда|3|TOP|2|411а/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Попова М. С.)
+Среда|3|BOTTOM|1|324/3|8|Лабораторные занятия Техническое обслуживание и ремонт аппаратной части компьютерных систем и комплексов 8 нед. (Петрова Г. Н.)
+Среда|3|BOTTOM|2|320/3|0|Лабораторные занятия Эксплуатация аппаратного обеспечения ПК, установка и конфигурирование периферийного оборудования (Надеева И. А.)
+Среда|4|TOP|1|101/3|0|Лабораторные занятия Информационные технологии (Фомин Р. В.)
+Среда|4|TOP|2|411а/3|0|Практические занятия Иностранный язык в профессиональной деятельности (Попова М. С.)
+Среда|5|TOP|0|234/3|0|Практические занятия Кураторский час (Полухин А. К.)
+Четверг|0|TOP|0|201/3|0|Лекционные занятия Операционные системы и среды (Василенко В. А.)
+Четверг|0|BOTTOM|1|225/3|0|Практические занятия Операционные системы и среды (Василенко В. А.)
+Четверг|0|BOTTOM|2|320/3|0|Практические занятия Инженерная компьютерная графика (Надеева И. А.)
+Четверг|1|TOP|0|201/3|0|Лекционные занятия Операционные системы и среды (Василенко В. А.)
+Четверг|1|BOTTOM|1|225/3|0|Практические занятия Операционные системы и среды (Василенко В. А.)
+Четверг|1|BOTTOM|2|320/3|0|Практические занятия Инженерная компьютерная графика (Надеева И. А.)
+Четверг|2|TOP|0|—|0|Практические занятия Физическая культура (Котов Е. В.)
+Четверг|2|BOTTOM|1|320/3|0|Практические занятия Инженерная компьютерная графика (Надеева И. А.)
+Четверг|2|BOTTOM|2|225/3|0|Практические занятия Операционные системы и среды (Василенко В. А.)
+Четверг|3|BOTTOM|1|320/3|0|Практические занятия Инженерная компьютерная графика (Надеева И. А.)
+Четверг|3|BOTTOM|2|225/3|0|Практические занятия Операционные системы и среды (Василенко В. А.)
+Пятница|0|BOTTOM|0|201/3|12|Лекционные занятия Основы алгоритмизации и программирования 12 нед. (Залхаева Л. Э.)
+Пятница|1|TOP|0|423/3|0|Лекционные занятия Эксплуатация аппаратного обеспечения ПК, установка и конфигурирование периферийного оборудования (Надеева И. А.)
+Пятница|1|BOTTOM|0|201/3|12|Лекционные занятия Основы алгоритмизации и программирования 12 нед. (Залхаева Л. Э.)
+Пятница|2|TOP|0|423/3|0|Лекционные занятия Эксплуатация аппаратного обеспечения ПК, установка и конфигурирование периферийного оборудования (Надеева И. А.)
+Пятница|3|TOP|1|405/3|0|Лабораторные занятия Основы проектирования цифровой техники (Федорова Е. Н.)
+Пятница|4|TOP|1|405/3|0|Лабораторные занятия Основы проектирования цифровой техники (Федорова Е. Н.)
+` } };
+
+
+/* ══════════════════ РАЗБОР ДАННЫХ ══════════════════ */
+
+const DAY_INDEX = {}; DAYS.forEach((d, i) => DAY_INDEX[d] = i);
+
+// Тип занятия определяется по префиксу названия — как в оригинале
+function parseType(title) {
+    if (title.startsWith("Лекционные занятия"))   return { type: "lec", label: "Лекция",     rest: title.slice("Лекционные занятия".length) };
+    if (title.startsWith("Лабораторные занятия")) return { type: "lab", label: "Лаборатория", rest: title.slice("Лабораторные занятия".length) };
+    if (title.startsWith("Практические занятия")) return { type: "pra", label: "Практика",   rest: title.slice("Практические занятия".length) };
+    return { type: "pra", label: "Занятие", rest: title };
+}
+
+// Остаток названия разбираем на предмет, преподавателя "(Фамилия И. О.)" и примечание ("перевод …")
+function parseRest(rest) {
+    const m = rest.match(/^(.*?)\s*\(([^()]+)\)\s*(.*)$/s);
+    if (!m) return { subject: rest.trim(), teacher: "", note: "" };
+    return { subject: m[1].trim(), teacher: m[2].trim(), note: m[3].trim() };
+}
+
+const lessons = [];
+function rebuildLessons() {
+    lessons.length = 0;
+    for (const [gid, group] of Object.entries(GROUPS)) {
+        for (const line of group.raw.split("\n")) {
+            const s = line.trim();
+            if (!s) continue;
+            const [dayName, timeIdx, pos, sub, room, , title] = s.split("|");
+            const day = DAY_INDEX[dayName.trim()];
+            if (day === undefined) continue;
+            const type = parseType(title.trim());
+            const info = parseRest(type.rest);
+            lessons.push({
+                g: gid,
+                d: day, t: +timeIdx, pos: pos.trim(), sub: +sub, w: 0, /* week_only — сохранено, как в исходнике, на показ не влияет */
+                room: room.trim() === "—" ? "" : room.trim(),
+                title: title.trim(),
+                subject: info.subject, teacher: info.teacher, note: info.note,
+                type: type.type, typeLabel: type.label,
+                key: gid + "-" + day + "-" + timeIdx + "-" + pos.trim() + "-" + sub
+            });
+        }
+    }
+}
+rebuildLessons();
+
+// id статических групп (м always живой fallback)
+const STATIC_IDS = Object.keys(GROUPS);
+
+/* Динамическое расписание (schedule.json рядом со страницей) — генерируется
+   GitHub Actions из XLS-файлов cchgeu.ru (groups 24-го набора).
+   Формат каждой строки совпадает со статикой, так что всё работает без правок рендера. */
+function applyScheduleData(data) {
+    if (!data || !data.groups) return;
+    let added = 0;
+    for (const [code, info] of Object.entries(data.groups)) {
+        if (!info || !Array.isArray(info.lessons) || !info.lessons.length) continue;
+        GROUPS[code] = { code, raw: info.lessons.join("\n") };
+        added++;
+    }
+    if (!added) return;
+    rebuildLessons();
+    // отложенный выбор динамической группы — восстанавливаем именно его
+    if (state.gPending && GROUPS[state.gPending]) {
+        state.g = state.gPending;
+        state.gPending = null;
+    }
+    if (!GROUPS[state.g]) state.g = "ksk";
+    if (state.sub > 0 && !subsOfGroup(state.g).includes(state.sub)) state.sub = 0;
+    buildSubs();
+    buildGroups();
+    if (gateRefresh) gateRefresh();   // список в открытой плашке первого запуска
+    render(false);
+}
+
+/* ══════════════════ РЕЙТИНГ ПРЕПОДАВАТЕЛЕЙ — общий, с именами ══════════════════
+   Каждый голос (оценка + имя) сохраняется в бесплатной базе Supabase,
+   поэтому рейтинг виден всем посетителям сайта. Настройка (15 минут):
+     1) supabase.com → регистрация → New project (регион — Франкфурт, без карты);
+     2) SQL Editor → вставить SQL таблицы → Run;
+     3) Settings → API Keys → скопировать Project URL и publishable ключ
+        (sb_publishable_...); в старых проектах это «anon public» ключ (eyJ...);
+     4) вписать их в RATINGS_DB ниже и залить обновлённый index.html на хостинг.
+   Пока поля пустые — резервный локальный режим: голоса хранятся только на
+   своём устройстве (точно так же работает резервная копия файла). */
+
+const RATINGS_DB = {
+    url: "https://fxvpwwnsynhucrvmssgt.supabase.co",   // Project URL — вписан
+    key: "sb_publishable_gcSIw_ItyVvn6sM4y_uFgw_e3TNwbTA"   // publishable ключ — вписан
+};
+
+const RATINGS_STORE_KEY = "teacher-ratings";
+const PENDING_KEY = "teacher-ratings-pending";   // недоставленные голоса ждут связи
+
+// Заголовки запросов. Новый формат ключей (sb_publishable_...) идёт только
+// в заголовке apikey; старый JWT-ключ anon (начинается с eyJ) — и в Bearer.
+function supaHeaders(extra) {
+    const h = { apikey: RATINGS_DB.key };
+    if (!RATINGS_DB.key.startsWith("sb_")) h.Authorization = "Bearer " + RATINGS_DB.key;
+    return Object.assign(h, extra || {});
+}
+
+// Запрос к таблице оценок: 3 попытки с таймаутом 9 с и паузами между ними —
+// одиночный fetch на дрожащем мобильном интернете часто виснет или рвётся.
+async function supaFetch(query, options, maxTries) {
+    const tries = maxTries || 3;
+    for (let i = 1; ; i++) {
+        const ac = new AbortController();
+        const tmr = setTimeout(() => ac.abort(), 9000);   // не ждём подвисший запрос 30+ секунд
+        try {
+            const r = await fetch(RATINGS_DB.url + "/rest/v1/rating_votes" + query,
+                Object.assign({ signal: ac.signal }, options || {}));
+            clearTimeout(tmr);
+            if (!r.ok) {
+                const err = new Error("HTTP " + r.status);
+                err.status = r.status;
+                if (r.status === 409) err.dup = true;     // это имя уже голосовало
+                throw err;
+            }
+            return r;
+        } catch (e) {
+            clearTimeout(tmr);
+            const st = e && e.status;
+            const retryable = !st || st >= 500;           // сеть/таймаут/ошибка сервера — повторяем; 4xx — нет
+            if (retryable && i < tries) {
+                await new Promise(res => setTimeout(res, 400 * i + Math.random() * 300));
+                continue;
+            }
+            throw e;
+        }
+    }
+}
+
+// GET-запрос к таблице оценок
+function supaGet(query) {
+    return supaFetch(query, { headers: supaHeaders() }).then(r => r.json());
+}
+
+const RATINGS = {
+    mode: (RATINGS_DB.url && RATINGS_DB.key) ? "cloud" : "local",   // общий / резервный
+    offline: false,          // облако настроено, но связи сейчас нет
+    cache: {},               // [ключ учителя]: {count, avg} — агрегаты из облака
+    _norm(t) { return t.replace(/\s+/g, " ").trim(); },
+    load() {
+        return Object.assign({ votes: {}, my: {}, myName: "" },
+            JSON.parse(localStorage.getItem(RATINGS_STORE_KEY) || "{}"));
+    },
+    save(data) { localStorage.setItem(RATINGS_STORE_KEY, JSON.stringify(data)); },
+
+    // Среднее и число голосов. В облаке — из закэшированных данных, локально — свои.
+    average(teacher) {
+        const key = RATINGS._norm(teacher);
+        if (RATINGS.mode === "cloud") {
+            const c = RATINGS.cache[key];
+            return c ? { count: c.count, avg: c.avg } : { count: 0, avg: 0 };
+        }
+        const votes = RATINGS.load().votes[key] || {};
+        let sum = 0, count = 0;
+        for (const s in votes) { sum += s * votes[s]; count += votes[s]; }
+        return count ? { count, avg: sum / count } : { count: 0, avg: 0 };
+    },
+    myVote(teacher) { return RATINGS.load().my[RATINGS._norm(teacher)] || 0; },
+    myName() { return RATINGS.load().myName || ""; },
+
+    // Обновить агрегаты из облака. При ошибке связи — молча переходим в локальный вид,
+    // но каждые 60 c пробуем ещё раз, пока не восстановим связность.
+    _fetchTmr: null,
+    scheduleFetchRetry() {
+        clearTimeout(RATINGS._fetchTmr);
+        RATINGS._fetchTmr = setTimeout(() => {
+            RATINGS._fetchTmr = null;
+            RATINGS.fetchAll();
+        }, 60000);
+    },
+    async fetchAll() {
+        if (RATINGS.mode !== "cloud") return;
+        try {
+            const rows = await supaGet("?select=teacher,score&limit=2000");
+            const agg = {};
+            for (const r of rows) {
+                const k = String(r.teacher).trim();
+                if (!agg[k]) agg[k] = { sum: 0, count: 0 };
+                agg[k].sum += r.score;
+                agg[k].count += 1;
+            }
+            const cache = {};
+            for (const k in agg) cache[k] = { count: agg[k].count, avg: agg[k].sum / agg[k].count };
+            RATINGS.cache = cache;
+            RATINGS.offline = false;
+        } catch (e) {
+            RATINGS.offline = true;
+            RATINGS.scheduleFetchRetry();
+        }
+    },
+
+    // Очередь недоставленных голосов: если POST не прошёл из-за сети, голос
+    // сохраняется в localStorage и отправляется авто-повтором позже (загрузка
+    // страницы, возврат во вкладку, каждые 90 c). Ничего не теряется.
+    dequeue(key) {
+        const l = RATINGS.loadPending().filter(p => p.teacher !== key);
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify(l)); } catch (e) {}
+    },
+    enqueue(v) {
+        const l = RATINGS.loadPending();
+        if (l.some(p => p.teacher === v.teacher)) return;   // за препода ждёт максимум один голос
+        l.push(v);
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify(l)); } catch (e) {}
+    },
+    loadPending() {
+        try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"); } catch (e) { return []; }
+    },
+    async processPending() {
+        if (RATINGS.mode !== "cloud" || !("navigator" in window)) return;
+        const list = RATINGS.loadPending();
+        if (!list.length) return;
+        let changed = false;
+        for (const v of list) {
+            try {
+                await supaFetch("", {
+                    method: "POST",
+                    headers: supaHeaders({ "Content-Type": "application/json", Prefer: "return=minimal" }),
+                    body: JSON.stringify({ teacher: v.teacher, voter_name: v.name, score: v.score })
+                });
+                RATINGS.dequeue(v.teacher);
+                const d = RATINGS.load();
+                d.my[v.teacher] = v.score;
+                d.myName = v.name;
+                RATINGS.save(d);
+                changed = true;
+            } catch (e) {
+                if (e && e.dup) {                // такое имя уже голосовало ранее — учтено
+                    RATINGS.dequeue(v.teacher);
+                    const d = RATINGS.load();
+                    d.my[v.teacher] = v.score;
+                    RATINGS.save(d);
+                    changed = true;
+                }
+                // сеть всё ещё не хоче — оставляем в очереди до следующего тика
+            }
+        }
+        if (changed) {
+            try { await RATINGS.fetchAll(); } catch (e) {}
+            if (typeof render === "function") render(false);
+        }
+    },
+
+    // Голос. В облаке — запись с именем (одно имя = один голос, повтор — ошибка 409),
+    // локально — гистограмма своих голосов, как раньше.
+    async vote(teacher, score, name) {
+        const key = RATINGS._norm(teacher);
+        if (RATINGS.mode !== "cloud") {
+            const data = RATINGS.load();
+            if (!data.votes[key]) data.votes[key] = {};
+            const prev = data.my[key] || 0;
+            if (prev) {
+                data.votes[key][prev] = (data.votes[key][prev] || 1) - 1;
+                if (!data.votes[key][prev]) delete data.votes[key][prev];
+            }
+            if (prev !== score) data.votes[key][score] = (data.votes[key][score] || 0) + 1;
+            data.my[key] = score;
+            data.myName = name;
+            RATINGS.save(data);
+            return;
+        }
+        // cloud: POST всегда пытаемся в облако — даже если GET агрегатов фейлился,
+        // «offline» из прошлого неудачного GET не означает, что пост тоже провалится.
+        try {
+            await supaFetch("", {
+                method: "POST",
+                headers: supaHeaders({ "Content-Type": "application/json", Prefer: "return=minimal" }),
+                body: JSON.stringify({ teacher: key, voter_name: name, score: score })
+            });
+        } catch (e) {
+            if (e && e.dup) throw e;             // имя уже голосовало — покажем честно
+            // сеть не пустила: ставим в очередь, звёздочку показываем как выбранную
+            RATINGS.enqueue({ teacher: key, score: score, name: name });
+            const d = RATINGS.load();
+            d.my[key] = score;
+            d.myName = name;
+            RATINGS.save(d);
+            const q = new Error("нет связи — отложено");
+            q.queued = true;
+            throw q;
+        }
+        const d2 = RATINGS.load();
+        d2.my[key] = score;
+        d2.myName = name;
+        RATINGS.save(d2);
+        RATINGS.dequeue(key);                    // возможно, тут ждал более ранний недоставленный
+        try { await RATINGS.fetchAll(); } catch (e) {}
+    }
+};
+
+/* ══════════════════ ДАТЫ И ЧЁТНОСТЬ НЕДЕЛИ ══════════════════ */
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
+
+// Полночь указанной даты (локальная)
+function midnight(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+// Начало семестра: учебная неделя №1 = 31 августа 2026 (как в exe)
+const SEMESTER_START = new Date(2026, 7, 31);
+
+// Номер недели и её чётность для произвольной даты.
+// Возвращаем 1 = числитель, 2 = знаменатель. До начала семестра — числитель.
+function halfForDate(date) {
+    const week = Math.floor((midnight(date) - SEMESTER_START) / WEEK_MS) + 1;
+    if (week < 1) return { week, half: 1 };
+    return { week, half: week % 2 === 1 ? 1 : 2 };
+}
+
+// Понедельник недели, в которую входит дата
+function mondayOf(date) {
+    const d = midnight(date);
+    const shift = (d.getDay() + 6) % 7; // Вс=0 → 6
+    return new Date(d.getTime() - shift * DAY_MS);
+}
+
+const TODAY = () => midnight(new Date());
+
+// Название дня недели по дате: 0 = сегодня, 1 = завтра (как в exe)
+function dayIndexFromDate(date) {
+    return (date.getDay() + 6) % 7;
+}
+
+function formatDate(date) {
+    return date.getDate() + " " + MONTHS[date.getMonth()];
+}
+
+/* ══════════════════ ВРЕМЯ (подсветка текущей пары) ══════════════════ */
+
+function toMinutes(hhmm) {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+}
+const SLOT_RANGES = TIMES.map(t => {
+    const [a, b] = t.split(" - ");
+    return { start: toMinutes(a.trim()), end: toMinutes(b.trim()) };
+});
+
+// Статус пары относительно времени: 'now' | 'past' | '' (только для сегодняшней даты)
+function slotStatus(t, date) {
+    if (midnight(date).getTime() !== TODAY().getTime()) return "";
+    const now = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const r = SLOT_RANGES[t];
+    if (mins >= r.start && mins < r.end) return "now";
+    if (mins >= r.end) return "past";
+    return "";
+}
+
+/* ══════════════════ ФИЛЬТРЫ (как в exe) ══════════════════ */
+
+function isCorrectHalf(l, half) {
+    if (half === 0) return true;          // показывать обе недели (не используется, но оставлено)
+    if (l.pos === "TOP") return half === 1;
+    if (l.pos === "BOTTOM") return half === 2;
+    return true;
+}
+
+// Возвращает занятия дня с учётом выбранной подгруппы и чётности
+function lessonsForDay(day, sub, half) {
+    return lessons
+        .filter(l => l.g === state.g && l.d === day && isCorrectHalf(l, half))
+        .filter(l => sub === 0 || l.sub === 0 || l.sub === sub)
+        .sort((a, b) => a.t - b.t || a.sub - b.sub);
+}
+
+/* ══════════════════ ОТСЧЁТ ДО ЗИМНЕЙ СЕССИИ ══════════════════ */
+
+// Начало зимней сессии: 22 декабря 2026, первая пара в 08:30.
+// Явное указание часа сделано, чтобы «полночь 22 декабря» не считалась сессией раньше времени.
+const SESSION_START = new Date(2026, 11, 22, 8, 30, 0);
+
+// Русские склонения: plural(61, ["день","дня","дней"]) → "дней"
+function plural(n, forms) {
+    if (n % 10 === 1 && n % 100 !== 11) return forms[0];
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return forms[1];
+    return forms[2];
+}
+function nums(n, forms) { return n + " " + plural(n, forms); }
+
+// Состояние отсчёта в любой момент времени.
+// До сессии: { started:false, days, hours, minutes, seconds, text } —
+// обрезаем величины, которые уже безнадёжно велики (не показываем "0 дней 15 часов", если завтра).
+// После старта: { started:true, text:"Сессия началась!" }.
+function winterSessionCountdown(now = new Date()) {
+    const diff = SESSION_START - now;
+    if (diff <= 0) return { started: true, days: 0, hours: 0, minutes: 0, seconds: 0, text: "Сессия началась!" };
+    const days = Math.floor(diff / DAY_MS);
+    const hours = Math.floor((diff % DAY_MS) / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    /* Спокойный формат (выбрано при согласовании): пока до сессии далеко — дни и часы;
+       без часов — только часы; в последний час — минуты; в последнюю минуту — секунды. */
+    const parts = [];
+    if (days > 0) {
+        parts.push(nums(days, ["день", "дня", "дней"]));
+        if (hours > 0) parts.push(nums(hours, ["час", "часа", "часов"]));
+    } else if (hours > 0) {
+        parts.push(nums(hours, ["час", "часа", "часов"]));
+    } else if (minutes > 0) {
+        parts.push(nums(minutes, ["минута", "минуты", "минут"]));
+    } else {
+        parts.push(nums(seconds, ["секунда", "секунды", "секунд"]));
+    }
+    return { started: false, days, hours, minutes, seconds, parts, text: "До зимней сессии: " + parts.join(" ") };
+}
+
+/* ── Показ: бейдж в шапке (#countdownBadge, рядом с бейджем недели — выбран при согласовании).
+   Обновляется вместе с интерфейсом раз в минуту (достаточно для минутной точности);
+   после старта бейдж принимает золотую подсветку «Сессия началась!». */
+
+/* ══════════════════ СОСТОЯНИЕ ══════════════════ */
+
+const STORE_KEY = "schedule-settings";
+const state = Object.assign(
+    { view: "today", sub: 0, halfMode: "auto", g: "ksk", settingsOpen: false },   // view: 'today' | 'tomorrow' | 'week' | 0..6
+    JSON.parse(localStorage.getItem(STORE_KEY) || "{}")
+);
+state.view = state.view === 0 || state.view ? state.view : "today";
+if (!(state.view === "today" || state.view === "tomorrow" || state.view === "week"
+      || (Number.isInteger(state.view) && state.view >= 0 && state.view <= 6))) state.view = "today";
+if (![0, 1, 2, 3].includes(state.sub)) state.sub = 0;   // 3 = третья п/г (бывает в XLS); проверка по группе позже
+if (!["auto", 1, 2].includes(state.halfMode)) state.halfMode = "auto";
+if (!GROUPS[state.g]) {
+    // группа динамическая (из schedule.json) и ещё не загрузилась —
+    // запоминаем отложенно и восстановим, когда данные придут
+    state.gPending = state.g;
+    state.g = "ksk";
+}
+if (typeof state.settingsOpen !== "boolean") state.settingsOpen = false;
+if (!["graphite", "amber"].includes(state.theme)) state.theme = "graphite";   // темы оформления
+document.documentElement.dataset.theme = state.theme;
+
+function saveState() {
+    // если выбор ещё «в ожидании» (динамическая группа не дошила) — сохраняем именно его
+    const g = state.gPending || state.g;
+    localStorage.setItem(STORE_KEY, JSON.stringify(
+        { view: state.view, sub: state.sub, halfMode: state.halfMode, g, settingsOpen: state.settingsOpen, theme: state.theme }
+    ));
+}
+
+/* ══════════════════ ОТРИСОВКА ══════════════════ */
+
+const $ = sel => document.querySelector(sel);
+const main = $("#main"), viewsRow = $("#viewsRow"), subRow = $("#subRow"), halfRow = $("#halfRow"), groupRow = $("#groupRow"), themeRow = $("#themeRow");
+const settingsToggle = $("#settingsToggle"), settingsPanel = $("#settingsPanel");
+
+function makeChip(label, hint, onClick) {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = label;
+    b.title = hint || "";
+    b.addEventListener("click", onClick);
+    return b;
+}
+
+// --- вкладка с видами: Сегодня | Завтра | Пн..Вс | Неделя
+let viewChips = [];
+function buildViews() {
+    const specs = [
+        { id: "today", label: "Сегодня" },
+        { id: "tomorrow", label: "Завтра" },
+        ...DAYS.map((name, i) => ({ id: i, label: DAY_SHORT[i], hint: name + " — полная вкладка дня" })),
+        { id: "week", label: "Неделя" }
+    ];
+    viewsRow.querySelectorAll(".chip").forEach(c => c.remove());
+    viewChips = specs.map(s => {
+        const chip = makeChip(s.label, s.hint, () => { state.view = s.id; saveState(); render(); });
+        chip.dataset.viewId = String(s.id);
+        viewsRow.appendChild(chip);
+        return chip;
+    });
+}
+
+// --- выбор подгруппы
+let subChips = [];
+function subsOfGroup(gid) {
+    const set = new Set();
+    for (const l of lessons) if (l.g === gid && l.sub > 0) set.add(l.sub);
+    return [...set].sort((a, b) => a - b);
+}
+const SUB_NAMES = { 1: "Первая", 2: "Вторая", 3: "Третья", 4: "Четвёртая" };
+function buildSubs() {
+    subRow.querySelectorAll(".chip").forEach(c => c.remove());
+    const subs = subsOfGroup(state.g);
+    if ([0, 1, 2].includes(state.sub) === false && subs.includes(state.sub) === false) state.sub = 0;
+    subChips = [{ id: 0, label: "Обе" }].concat(
+        subs.length ? subs.map(s => ({ id: s, label: SUB_NAMES[s] || (s + "-я") }))
+                    : [{ id: 1, label: "Первая" }, { id: 2, label: "Вторая" }]
+    );
+    subChips = subChips.map(s => {
+        const chip = makeChip(s.label, "", () => { state.sub = s.id; saveState(); render(); });
+        chip.dataset.sub = String(s.id);
+        subRow.appendChild(chip);
+        return chip;
+    });
+}
+
+// --- чётность недели
+let halfChips = [];
+function buildHalves() {
+    const specs = [
+        { id: "auto", label: "Авто", hint: "Определяется по дате автоматически" },
+        { id: 1, label: "Числитель", hint: "Нечётные учебные недели" },
+        { id: 2, label: "Знаменатель", hint: "Чётные учебные недели" }
+    ];
+    halfChips = specs.map(s => {
+        const chip = makeChip(s.label, s.hint, () => { state.halfMode = s.id; saveState(); render(); });
+        halfRow.appendChild(chip);
+        return chip;
+    });
+}
+
+// --- тема оформления: «Графит» (синяя) и «Янтарь» (тёплая), обе тёмные
+let themeChips = [];
+function buildThemes() {
+    const specs = [
+        { id: "graphite", label: "Графит", hint: "Тёмно-синяя, холодная" },
+        { id: "amber", label: "Янтарь", hint: "Тёмно-коричневая, тёплая" }
+    ];
+    themeChips = specs.map(s => {
+        const chip = makeChip(s.label, s.hint, () => {
+            state.theme = s.id;
+            document.documentElement.dataset.theme = s.id;   // CSS подхватывает мгновенно
+            saveState();
+            renderThemes();
+        });
+        chip.dataset.themeId = s.id;
+        themeRow.appendChild(chip);
+        return chip;
+    });
+}
+function renderThemes() {
+    themeChips.forEach(chip => chip.classList.toggle("active", state.theme === chip.dataset.themeId));
+}
+
+// Показ/скрытие панели настроек
+function applySettingsPanel() {
+    settingsPanel.classList.toggle("open", state.settingsOpen);
+    settingsToggle.classList.toggle("open", state.settingsOpen);
+    settingsToggle.setAttribute("aria-expanded", String(state.settingsOpen));
+    renderThemes();
+}
+
+// --- выбор группы: любимые чипы + «Все группы ▾» с поиском
+let groupChips = [], pickerBtn = null, pickerLabel = null, pickerList = null, pickerSearch = null, pickerItemsBox = null;
+function buildGroups() {
+    groupRow.querySelectorAll("button.chip, .group-picker").forEach(n => n.remove());
+    groupChips = STATIC_IDS.map(id => {
+        const chip = makeChip(GROUPS[id].code, "", () => { state.g = id; saveState(); render(); });
+        chip.dataset.gid = id;
+        groupRow.appendChild(chip);
+        return chip;
+    });
+    const others = Object.keys(GROUPS).filter(id => !STATIC_IDS.includes(id));
+    if (!others.length) return;
+
+    const chev = document.createElement("span");
+    chev.className = "chev";
+    chev.textContent = " ▾";
+    // кнопка отдельно, список отдельно (соседи в wrapper) — клики по пунктам
+    // не всплывают в кнопку, toggle не срабатывает «через раз»
+    const wrap = document.createElement("div");
+    wrap.className = "group-picker";
+    pickerBtn = document.createElement("button");
+    pickerBtn.className = "chip";
+    pickerBtn.type = "button";
+    pickerBtn.title = "Выбрать любую группу 24-го набора";
+    pickerBtn.setAttribute("aria-expanded", "false");
+    pickerLabel = document.createElement("span");
+    pickerLabel.textContent = "Все группы";
+    pickerBtn.append(pickerLabel, chev);
+    pickerBtn.addEventListener("click", () => {
+        togglePicker(!pickerList.classList.contains("open"));
+    });
+
+    pickerList = document.createElement("div");
+    pickerList.className = "picker-list";
+    pickerSearch = document.createElement("input");
+    pickerSearch.className = "picker-search";
+    pickerSearch.type = "search";
+    pickerSearch.placeholder = "Поиск: ИСП, КСК…";
+    pickerSearch.addEventListener("input", renderPickerItems);
+    pickerSearch.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+            const first = pickerItemsBox.querySelector(".picker-item:not([hidden])");
+            if (first) { pickGroup(first.dataset.gid); }
+        }
+    });
+    pickerItemsBox = document.createElement("div");
+    pickerItemsBox.className = "picker-list-x";
+    pickerList.append(pickerSearch, pickerItemsBox);
+    wrap.append(pickerBtn, pickerList);
+    // ранее список был внутри кнопки — старые узлы чистятся автоматически в начале buildGroups
+    groupRow.appendChild(wrap);
+    renderPickerItems();
+}
+function pickGroup(gid) {
+    state.g = gid;
+    if (state.sub > 0 && !subsOfGroup(gid).includes(state.sub)) state.sub = 0;
+    saveState();
+    buildSubs();
+    togglePicker(false);
+    render();
+}
+function togglePicker(open) {
+    if (!pickerList || !pickerBtn) return;
+    pickerList.classList.toggle("open", open);
+    pickerBtn.setAttribute("aria-expanded", String(open));
+    pickerBtn.closest(".group-picker").classList.toggle("open", open);
+    if (open) {
+        pickerSearch.value = "";
+        renderPickerItems();
+        // на телефоне автопрошанка кидает клавиатуру и сдвигает список —
+        // фокус ставим только там, где привычен настоящий курсор/клавиатура
+        if (window.matchMedia("(hover: hover) and (min-width: 600px)").matches) {
+            setTimeout(() => pickerSearch.focus(), 0);
+        }
+    }
+}
+function renderPickerItems() {
+    if (!pickerItemsBox) return;
+    const q = (pickerSearch.value || "").trim().toLowerCase();
+    pickerItemsBox.innerHTML = "";
+    let shown = 0;
+    const seenCodes = new Set();   // динамические группы могут повторять коды статических
+    for (const id of Object.keys(GROUPS)) {
+        const grp = GROUPS[id];
+        if (seenCodes.has(grp.code)) continue;
+        seenCodes.add(grp.code);
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "picker-item" + (state.g === id ? " active" : "");
+        b.dataset.gid = id;
+        b.textContent = grp.code;
+        const hit = !q || grp.code.toLowerCase().includes(q);
+        b.hidden = !hit;
+        if (hit) shown++;
+        b.addEventListener("click", () => pickGroup(id));
+        pickerItemsBox.appendChild(b);
+    }
+    if (!shown) {
+        const d = document.createElement("div");
+        d.className = "picker-empty";
+        d.textContent = "Не найдено";
+        pickerItemsBox.appendChild(d);
+    }
+}
+document.addEventListener("click", e => {
+    if (!pickerList || !pickerList.classList.contains("open")) return;
+    // зажатие клика внутри chip-кнопки пикера тоже считается «внутри» (кнопка — сосед списка)
+    const wrap = pickerList.parentElement;
+    if (wrap && wrap.contains(e.target)) return;
+    togglePicker(false);
+});
+document.addEventListener("keydown", e => {
+    if (e.key === "Escape") togglePicker(false);
+});
+
+function renderGroups() {
+    groupChips.forEach(chip => chip.classList.toggle("active", state.g === chip.dataset.gid));
+    if (pickerBtn && pickerLabel) {
+        const isDyn = !STATIC_IDS.includes(state.g);
+        pickerLabel.textContent = isDyn ? GROUPS[state.g].code : "Все группы";
+        pickerBtn.classList.toggle("active", isDyn);
+    }
+}
+
+/* ══════════════════ ПЛАШКА ПЕРВОГО ЗАПУСКА «Выберите группу» ══════════════════
+   Показывается один раз — пока в localStorage нет отметки group-picked.
+   Выбор сохраняется обычным saveState(), так что при следующих заходах
+   сайт сразу открывается на выбранной группе. */
+
+// Флаг храним отдельно от schedule-settings, чтобы старым постоянным
+// посетителям тоже один раз предложить выбор.
+const GATE_KEY = "group-picked";
+
+let gateOverlay = null;
+
+let gateRefresh = null;
+
+function gateClose() {
+    if (!gateOverlay) return;
+    gateOverlay.remove();
+    gateOverlay = null;
+    gateRefresh = null;
+}
+
+function showGroupGate() {
+    try {
+        if (localStorage.getItem(GATE_KEY) || localStorage.getItem(STORE_KEY)) {
+            // сохранённое состояние уже есть (приходил раньше) — не спрашиваем
+            if (localStorage.getItem(GATE_KEY)) return;
+        }
+    } catch (e) { /* приватный режим — просто не показываем */ return; }
+
+    gateOverlay = document.createElement("div");
+    gateOverlay.className = "gate-overlay";
+
+    const card = document.createElement("div");
+    card.className = "gate-card";
+    card.innerHTML = `
+        <div class="gate-emoji">📅</div>
+        <div class="gate-title">Выберите свою группу</div>
+        <div class="gate-sub">Мы запомним выбор и сразу откроем нужное расписание при следующем заходе. Изменить можно в любой момент кнопкой «Все группы».</div>
+    `;
+
+    const search = document.createElement("input");
+    search.className = "gate-search";
+    search.type = "search";
+    search.placeholder = "Найти группу: КСК, ММР, ИСП…";
+
+    const list = document.createElement("div");
+    list.className = "gate-list";
+
+    const note = document.createElement("div");
+    note.className = "gate-note";
+    note.textContent = "30 групп 2024 года набора · факультет СПО";
+
+    const skip = document.createElement("button");
+    skip.type = "button";
+    skip.className = "gate-skip";
+    skip.textContent = "Не сейчас";
+    skip.addEventListener("click", () => {
+        try { localStorage.setItem(GATE_KEY, "1"); } catch (e) {}
+        gateClose();
+    });
+
+    const renderGateItems = () => {
+        const q = (search.value || "").trim().toLowerCase();
+        list.innerHTML = "";
+        let shown = 0;
+        const seenCodes = new Set();   // без дубликатов кодов (статические vs динамические)
+        for (const id of Object.keys(GROUPS)) {
+            const code = GROUPS[id].code;
+            if (seenCodes.has(code)) continue;
+            seenCodes.add(code);
+            if (q && !code.toLowerCase().includes(q)) continue;
+            shown++;
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "gate-btn";
+            b.textContent = code;
+            b.addEventListener("click", () => {
+                try { localStorage.setItem(GATE_KEY, "1"); } catch (e) {}
+                gateClose();                 // вершину закрыть ДО render() — чипы уже собраны
+                pickGroup(id);
+            });
+            list.appendChild(b);
+        }
+        if (!shown) {
+            const d = document.createElement("div");
+            d.style.cssText = "grid-column:1/-1;text-align:center;color:var(--text-faint);font-size:13px;padding:10px 0;";
+            d.textContent = "Не найдено";
+            list.appendChild(d);
+        }
+    };
+    // если schedule.json догрузится позже — список в открытой плашке обновится
+    gateRefresh = renderGateItems;
+    search.addEventListener("input", renderGateItems);
+    renderGateItems();
+
+    card.append(search, list, note, skip);
+    gateOverlay.append(card);
+    gateOverlay.addEventListener("click", e => { if (e.target === gateOverlay) skip.click(); });
+    document.addEventListener("keydown", function esc(e) {
+        if (gateOverlay && e.key === "Escape") { skip.click(); document.removeEventListener("keydown", esc); }
+        if (!gateOverlay) document.removeEventListener("keydown", esc);
+    });
+    document.body.appendChild(gateOverlay);
+
+    if (window.matchMedia("(hover: hover)").matches) search.focus();
+}
+
+function renderControls() {
+    const todayIdx = dayIndexFromDate(TODAY());
+    renderGroups();
+    viewChips.forEach(chip => {
+        const raw = chip.dataset.viewId;
+        const id = /^\d$/.test(raw) ? +raw : raw;
+        chip.classList.toggle("active", state.view === id);
+        // помечаем точкой вкладку, соответствующую сегодняшнему дню
+        const dayIdx = typeof id === "number" ? id : (id === "today" ? todayIdx : -1);
+        chip.classList.toggle("today-hint", dayIdx === todayIdx);
+    });
+    subChips.forEach(chip => chip.classList.toggle("active", state.sub === +chip.dataset.sub));
+    halfChips.forEach((chip, i) => chip.classList.toggle("active", state.halfMode === ["auto", 1, 2][i]));
+}
+
+function renderBadge() {
+    const grp = GROUPS[state.g];
+    $("#groupLabel").textContent = "— " + grp.code;
+    document.title = "Моё расписание — " + grp.code;
+    const { week, half } = halfForDate(TODAY());
+    const names = { 1: "числитель", 2: "знаменатель" };
+    $("#weekBadge").textContent =
+        (week >= 1 ? week + "-я учебная неделя · " : "семестр ещё не начался · ") + names[half];
+
+    // отсчёт до зимней сессии (бейдж рядом с неделей)
+    const c = winterSessionCountdown();
+    const ct = $("#countdownBadge");
+    ct.hidden = false;
+    ct.classList.toggle("started", c.started);
+    ct.textContent = c.started ? "🎓 Сессия началась!" : "⏳ До сессии: " + c.parts.join(" ");
+}
+
+// --- кармашек вывода одного занятия
+function lessonCard(l, isNow, delayMs = 0) {
+    const div = document.createElement("div");
+    div.className = "lesson" + (isNow ? " now" : "");
+    div.style.setProperty("--d", delayMs + "ms");   // каскад появления внутри слота
+
+    const m = document.createElement("div");
+    m.className = "l-main";
+    if (isNow) {
+        const pill = document.createElement("span");
+        pill.className = "now-pill";
+        pill.textContent = "идёт сейчас";
+        m.appendChild(pill);
+    }
+    const subj = document.createElement("div");
+    subj.className = "subject";
+    subj.textContent = l.subject;
+    m.appendChild(subj);
+    if (l.teacher) m.appendChild(teacherRow(l.teacher));
+    if (l.note) {
+        const n = document.createElement("div");
+        n.className = "note";
+        n.textContent = l.note;
+        m.appendChild(n);
+    }
+    div.appendChild(m);
+
+    const badges = document.createElement("div");
+    badges.className = "l-badges";
+    const addBadge = (cls, text) => {
+        const b = document.createElement("span");
+        b.className = "badge " + cls;
+        b.textContent = text;
+        badges.appendChild(b);
+    };
+    addBadge("type-" + l.type, l.typeLabel);
+    if (l.sub) addBadge("sub", l.sub + "-я подгруппа");
+    if (l.room) addBadge("room", "ауд. " + l.room);
+    div.appendChild(badges);
+    return div;
+}
+
+/* ── Строка преподавателя: кликабельная фамилия + плашка со средним рейтингом ── */
+function teacherRow(teacher) {
+    const { count, avg } = RATINGS.average(teacher);
+    const row = document.createElement("div");
+    row.className = "teacher";
+
+    const name = document.createElement("button");
+    name.className = "teacher-name";
+    name.textContent = teacher;
+    name.title = "Оценить преподавателя";
+    name.addEventListener("click", () => openRatePopup(teacher));
+    row.appendChild(name);
+
+    const chip = document.createElement("button");
+    chip.className = "rating-chip" + (RATINGS.myVote(teacher) ? " voted" : "");
+    chip.textContent = count
+        ? "★ " + (Math.round(avg * 10) / 10).toFixed(1) + " (" + count + ")"
+        : "☆ нет оценок";
+    chip.title = "Оценить преподавателя";
+    chip.addEventListener("click", () => openRatePopup(teacher));
+    row.appendChild(chip);
+
+    return row;
+}
+
+/* ── Окошко оценки: обязательное имя + звёзды + кто и как голосовал ── */
+let rateOverlay = null, rateEscHandler = null;
+function closeRatePopup() {
+    if (rateOverlay) { rateOverlay.remove(); rateOverlay = null; }
+    if (rateEscHandler) {
+        document.removeEventListener("keydown", rateEscHandler);
+        rateEscHandler = null;
+    }
+}
+function openRatePopup(teacher) {
+    closeRatePopup();
+
+    const overlay = document.createElement("div");
+    overlay.className = "rate-overlay";
+    overlay.addEventListener("click", e => { if (e.target === overlay) closeRatePopup(); });
+
+    const card = document.createElement("div");
+    card.className = "rate-card";
+    overlay.appendChild(card);
+
+    const h = document.createElement("h3");
+    h.textContent = teacher;
+    card.appendChild(h);
+
+    const sub = document.createElement("div");
+    sub.className = "rate-sub";
+    sub.textContent = "Впишите своё имя и поставьте оценку — её увидят все, кто зайдёт на сайт.";
+    card.appendChild(sub);
+
+    const input = document.createElement("input");
+    input.className = "rate-input";
+    input.placeholder = "Ваше имя (обязательно)";
+    input.maxLength = 40;
+    input.value = RATINGS.myName();
+    input.addEventListener("input", () => { input.classList.remove("err"); refresh(); });
+    card.appendChild(input);
+
+    // показать список голосовавших (из облака; локально — только свой голос)
+    async function updateList() {
+        card.querySelectorAll(".rate-list").forEach(n => n.remove());
+        let items = [];
+        if (RATINGS.mode === "cloud" && !RATINGS.offline) {
+            try {
+                const rows = await supaGet("?teacher=eq." + encodeURIComponent(RATINGS._norm(teacher))
+                    + "&select=voter_name,score&order=created_at.desc&limit=50");
+                items = rows.map(r => ({ name: r.voter_name, score: r.score }));
+            } catch (e) { items = []; }
+        } else if (RATINGS.myVote(teacher)) {
+            items = [{ name: RATINGS.mode === "local" ? "вы (на этом устройстве)" : "", score: RATINGS.myVote(teacher) }];
+        }
+        if (items.length === 0) return;
+
+        const list = document.createElement("div");
+        list.className = "rate-list";
+        const lt = document.createElement("div");
+        lt.className = "rate-list-title";
+        lt.textContent = "Кто и как оценил:";
+        list.appendChild(lt);
+        const myName = input.value.trim().toLowerCase();
+        items.forEach(it => {
+            const row = document.createElement("div");
+            row.className = "rate-vote" + (it.name.toLowerCase() === myName ? " own" : "");
+            const sc = document.createElement("span");
+            sc.className = "score";
+            sc.textContent = "★ " + it.score;
+            row.appendChild(sc);
+            if (it.name) {
+                const w = document.createElement("span");
+                w.className = "who";
+                w.textContent = it.name;
+                row.appendChild(w);
+            }
+            list.appendChild(row);
+        });
+        card.appendChild(list);
+    }
+
+    function refresh() {
+        card.querySelectorAll(".rate-stats, .rate-stars, .rate-note").forEach(n => n.remove());
+
+        const { count, avg } = RATINGS.average(teacher);
+        const stats = document.createElement("div");
+        stats.className = "rate-stats";
+        stats.textContent = count
+            ? "★ " + (Math.round(avg * 10) / 10).toFixed(1) + " из 5 · голосов: " + count
+            : "Пока нет голосов — ваш будет первым!";
+        card.appendChild(stats);
+
+        const nameOk = input.value.trim().length >= 2;
+        const stars = document.createElement("div");
+        stars.className = "rate-stars" + (nameOk ? "" : " disabled");
+        for (let s = 1; s <= 5; s++) {
+            const b = document.createElement("button");
+            b.className = "rate-star" + (RATINGS.myVote(teacher) === s ? " picked" : "");
+            b.textContent = s;
+            b.title = ["Плохо", "Так себе", "Нормально", "Хорошо", "Отлично"][s - 1];
+            b.addEventListener("click", () => doVote(s));
+            stars.appendChild(b);
+        }
+        card.appendChild(stars);
+
+        const bits = [];
+        if (RATINGS.mode === "local")
+            bits.push("Общий рейтинг ещё не настроен: эта оценка сохранится только на вашем устройстве.");
+        else if (RATINGS.loadPending().some(p => p.teacher === RATINGS._norm(teacher)))
+            bits.push("Оценка отправляется на сервер — она появится у всех, как только восстановится интернет.");
+        else if (RATINGS.myVote(teacher))
+            bits.push("Ваша оценка учтена. У каждого имени — один голос за преподавателя.");
+        if (bits.length) {
+            const note = document.createElement("div");
+            note.className = "rate-note";
+            note.textContent = bits.join(" ");
+            card.appendChild(note);
+        }
+    }
+
+    async function doVote(score) {
+        const name = input.value.replace(/\s+/g, " ").trim();
+        if (name.length < 2) {                       // имя обязательно
+            input.classList.remove("err");
+            void input.offsetWidth;                  // перезапуск анимации shake
+            input.classList.add("err");
+            input.focus();
+            return;
+        }
+        card.querySelectorAll(".rate-note").forEach(n => n.remove());
+        try {
+            await RATINGS.vote(teacher, score, name);
+            render(false);                           // молча обновляем плашки у фамилий
+            refresh();
+            await updateList();
+        } catch (e) {
+            const msg = document.createElement("div");
+            msg.className = "rate-note";
+            if (e && e.queued) {
+                msg.style.color = "rgba(250, 200, 120, .95)";
+                msg.textContent = "Интернет подвёлся — оценка сохранена и отправится на сервер автоматически, как только связь появится.";
+            } else if (e && e.dup) {
+                msg.style.color = "rgba(251, 113, 133, .9)";
+                msg.textContent = "Имя «" + name + "» уже голосовало за этого преподавателя — одно имя = один голос (можно добавить инициалы, например «Аня С.»).";
+            } else {
+                msg.style.color = "rgba(251, 113, 133, .9)";
+                msg.textContent = RATINGS.mode === "cloud"
+                    ? "Не получилось отправить оценку — она сохранена и отправится автоматически. Проверьте интернет."
+                    : "Не удалось сохранить оценку на устройстве.";
+            }
+            card.appendChild(msg);
+            refresh();                 //.UpdateList звёздочек/плашки: голос мог встать в очередь
+        }
+    }
+    refresh();
+    if (RATINGS.mode === "cloud") updateList();
+
+    document.body.appendChild(overlay);
+    rateOverlay = overlay;
+    rateEscHandler = e => { if (e.key === "Escape") closeRatePopup(); };
+    document.addEventListener("keydown", rateEscHandler);
+}
+
+// --- вид одного дня
+function renderDay(dayIdx, date) {
+    const half = state.halfMode === "auto" ? halfForDate(date).half : state.halfMode;
+    const dayLessons = lessonsForDay(dayIdx, state.sub, half);
+
+    const title = document.createElement("div");
+    title.className = "day-title";
+    title.textContent = DAYS[dayIdx] + "  ";
+    const dspan = document.createElement("span");
+    dspan.className = "date";
+    dspan.textContent = formatDate(date);
+    title.appendChild(dspan);
+    main.appendChild(title);
+
+    if (dayLessons.length === 0) {
+        const e = document.createElement("div");
+        e.className = "empty-day";
+        e.textContent = "Занятий на этот день для выбранного режима нет 🎉";
+        main.appendChild(e);
+        return;
+    }
+
+    const bySlot = {};
+    dayLessons.forEach(l => (bySlot[l.t] = bySlot[l.t] || []).push(l));
+
+    TIMES.forEach((time, t) => {
+        const group = bySlot[t] || [];
+        const status = group.length ? slotStatus(t, date) : "";
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.style.setProperty("--i", t);           // каскад появления слотов
+
+        const st = document.createElement("div");
+        st.className = "slot-time";
+        st.textContent = time.replace(" - ", "\n— ");
+        if (status) {
+            const s = document.createElement("span");
+            s.className = "status " + status;
+            s.textContent = status === "now" ? "сейчас" : "прошло";
+            st.appendChild(s);
+        }
+        slot.appendChild(st);
+
+        const box = document.createElement("div");
+        box.className = "lessons";
+        if (group.length === 0) {
+            box.innerHTML = '<div style="color:var(--text-faint);font-size:14px;padding:14px 2px;">—</div>';
+        } else {
+            group.forEach((l, j) => box.appendChild(lessonCard(l, status === "now", j * 60)));
+        }
+        slot.appendChild(box);
+        main.appendChild(slot);
+    });
+}
+
+// --- краткая карточка для вида «Неделя»
+function glanceItem(l, isNow, delayMs = 0) {
+    const item = document.createElement("div");
+    item.className = "glance-item" + (isNow ? " now" : "");
+    item.style.setProperty("--d", delayMs + "ms");  // каскад появления внутри дня
+    const tm = document.createElement("div");
+    tm.className = "glance-time";
+    tm.textContent = TIMES[l.t].slice(0, 5);
+    item.appendChild(tm);
+    const tx = document.createElement("div");
+    tx.className = "glance-text";
+    tx.innerHTML = "";
+    tx.append(l.subject);
+    if (l.room) tx.append(" · " + l.room);
+    if (l.sub) {
+        const x = document.createElement("span");
+        x.className = "x";
+        x.textContent = " · " + l.sub + " подгр.";
+        tx.appendChild(x);
+    }
+    item.appendChild(tx);
+    return item;
+}
+
+// --- вид всей недели
+function renderWeek() {
+    const monday = mondayOf(TODAY());
+    const { half } = halfForDate(TODAY());
+    const activeHalf = state.halfMode === "auto" ? half : state.halfMode;
+    const todayIdx = dayIndexFromDate(TODAY());
+
+    const grid = document.createElement("div");
+    grid.className = "week-grid";
+
+    DAYS.forEach((name, i) => {
+        const date = new Date(monday.getTime() + i * DAY_MS);
+        const card = document.createElement("div");
+        card.className = "week-day" + (i === todayIdx ? " today" : "");
+        card.style.setProperty("--i", i);           // каскад появления дней недели
+
+        const h = document.createElement("h3");
+        h.textContent = name;
+        if (i === todayIdx) {
+            const tag = document.createElement("span");
+            tag.className = "today-tag";
+            tag.textContent = "сегодня";
+            h.appendChild(tag);
+        }
+        card.appendChild(h);
+
+        const items = lessonsForDay(i, state.sub, activeHalf);
+        if (items.length === 0) {
+            const p = document.createElement("div");
+            p.style.cssText = "color:var(--text-faint);font-size:13.5px;padding:6px 0;";
+            p.textContent = "Занятий нет";
+            card.appendChild(p);
+        } else {
+            const box = document.createElement("div");
+            box.className = "glance";
+            items.forEach((l, j) => box.appendChild(glanceItem(l, i === todayIdx && slotStatus(l.t, date) === "now", j * 55)));
+            card.appendChild(box);
+        }
+        grid.appendChild(card);
+    });
+    main.appendChild(grid);
+}
+
+function render(animate = true) {
+    main.classList.toggle("quiet", !animate);
+    renderControls();
+    applySettingsPanel();
+    renderBadge();
+    main.innerHTML = "";
+
+    if (state.view === "week") {
+        renderWeek();
+        return;
+    }
+    let date, dayIdx;
+    if (state.view === "today") {
+        date = TODAY();
+        dayIdx = dayIndexFromDate(date);
+    } else if (state.view === "tomorrow") {
+        date = new Date(TODAY().getTime() + DAY_MS);
+        dayIdx = dayIndexFromDate(date);
+    } else {
+        // выбранный день — берём этот же день текущей недели
+        dayIdx = state.view;
+        date = new Date(mondayOf(TODAY()).getTime() + dayIdx * DAY_MS);
+    }
+    renderDay(dayIdx, date);
+}
+
+/* ══════════════════ СТАРТ ══════════════════ */
+
+buildViews();
+buildSubs();
+buildHalves();
+buildThemes();
+buildGroups();
+
+settingsToggle.addEventListener("click", () => {
+    state.settingsOpen = !state.settingsOpen;
+    saveState();
+    applySettingsPanel();
+});
+applySettingsPanel();
+render();
+showGroupGate();
+
+// подтягиваем общий рейтинг из облака и молча обновляем плашки у фамилий
+// Общий рейтинг: сначала (пере)читаем агрегаты из облака, потом доталкиваем
+// всё, что не доехало в прошлые сессии, и показываем результат.
+RATINGS.fetchAll().then(() => RATINGS.processPending()).then(() => render(false));
+
+// динамическое расписание всех групп 24-набора (генерируется GitHub Actions).
+// fetch same-origin; при недоступности тихо остаёмся на вшитой статике КСК/ММР
+fetch("schedule.json", { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => { applyScheduleData(data); })
+    .catch(() => {});
+
+// обновляем подсветку «сейчас/прошло» раз в минуту — тихо, без анимаций
+// Доталкиваем недоставленные голоса: по таймеру и при возврате во вкладку.
+setInterval(() => { if (RATINGS.loadPending().length) RATINGS.processPending(); }, 90000);
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && RATINGS.loadPending().length) RATINGS.processPending();
+});
+
+setInterval(() => render(false), 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) render(false); });
+</script>
+
+<!-- Требование бесплатного DNS (DNSExit): ссылка на dnsexit.com на сайте,
+     иначе периодическая проверка может деактивировать зону vgtucommunity.2bd.net -->
+<p style="margin:0;padding:10px 0 14px;text-align:center;font-size:10.5px;color:rgba(255,255,255,.22);">DNS Powered by <a href="https://www.dnsexit.com" style="color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;">DNSEXIT.COM</a></p>
+</body>
+</html>
