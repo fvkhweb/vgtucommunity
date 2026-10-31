@@ -6,6 +6,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.view.KeyEvent
+import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -25,13 +26,24 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.allowFileAccess = true
         settings.allowContentAccess = true
+        settings.allowFileAccessFromFileURLs = true
+        settings.allowUniversalAccessFromFileURLs = true
         settings.databaseEnabled = true
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.setSupportZoom(false)
         settings.builtInZoomControls = false
         settings.displayZoomControls = false
 
-        webView.webViewClient = WebViewClient()
+        webView.setBackgroundColor(android.graphics.Color.parseColor("#0f1115"))
+        webView.webViewClient = object : WebViewClient() {
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                // Если онлайн-загрузка упала — откатываемся на локальные ассеты
+                if (view?.url?.startsWith("https://") == true) {
+                    view.loadUrl("file:///android_asset/index.html")
+                }
+            }
+        }
+        webView.webChromeClient = WebChromeClient()
 
         val url = if (isOnline()) "https://vgtucommunity.2bd.net" else "file:///android_asset/index.html"
         webView.loadUrl(url)
