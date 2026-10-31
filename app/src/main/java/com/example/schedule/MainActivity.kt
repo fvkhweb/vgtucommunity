@@ -21,6 +21,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         webView = WebView(this)
+        webView.layoutParams = android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        )
         setContentView(webView)
 
         val settings: WebSettings = webView.settings
@@ -37,9 +41,18 @@ class MainActivity : AppCompatActivity() {
         settings.displayZoomControls = false
 
         webView.setBackgroundColor(android.graphics.Color.parseColor("#0f1115"))
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val fallback = Runnable {
+            if (webView.url?.startsWith("https://") == true) {
+                webView.loadUrl("file:///android_asset/index.html")
+            }
+        }
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                handler.removeCallbacks(fallback)
+            }
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                // Если онлайн-загрузка упала — откатываемся на локальные ассеты
+                handler.removeCallbacks(fallback)
                 if (view?.url?.startsWith("https://") == true) {
                     view.loadUrl("file:///android_asset/index.html")
                 }
@@ -47,8 +60,12 @@ class MainActivity : AppCompatActivity() {
         }
         webView.webChromeClient = WebChromeClient()
 
-        val url = if (isOnline()) "https://vgtucommunity.2bd.net" else "file:///android_asset/index.html"
-        webView.loadUrl(url)
+        if (isOnline()) {
+            webView.loadUrl("https://vgtucommunity.2bd.net")
+            handler.postDelayed(fallback, 10000)
+        } else {
+            webView.loadUrl("file:///android_asset/index.html")
+        }
     }
 
     private fun isOnline(): Boolean {
