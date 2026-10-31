@@ -50,6 +50,19 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 handler.removeCallbacks(fallback)
+                // Если есть сеть — подтягиваем свежее расписание поверх локального
+                if (isOnline() && url?.startsWith("file://") == true) {
+                    view?.evaluateJavascript("""
+                        (function(){
+                            try {
+                                fetch('https://vgtucommunity.2bd.net/schedule.json', {cache:'no-store'})
+                                    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+                                    .then(function(d){ if (typeof applyScheduleData === 'function') applyScheduleData(d); })
+                                    .catch(function(e){});
+                            } catch(e) {}
+                        })();
+                    """.trimIndent(), null)
+                }
             }
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 handler.removeCallbacks(fallback)
@@ -60,12 +73,7 @@ class MainActivity : AppCompatActivity() {
         }
         webView.webChromeClient = WebChromeClient()
 
-        if (isOnline()) {
-            webView.loadUrl("https://vgtucommunity.2bd.net")
-            handler.postDelayed(fallback, 10000)
-        } else {
-            webView.loadUrl("file:///android_asset/index.html")
-        }
+        webView.loadUrl("file:///android_asset/index.html")
     }
 
     private fun isOnline(): Boolean {
