@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity() {
                     view?.evaluateJavascript("""
                         (function(){
                             try {
-                                fetch('https://vgtucommunity.2bd.net/schedule.json', {cache:'no-store'})
+                                fetch('http://vgtucommunity.2bd.net/schedule.json', {cache:'no-store'})
                                     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
                                     .then(function(d){ if (typeof applyScheduleData === 'function') applyScheduleData(d); })
                                     .catch(function(e){});
