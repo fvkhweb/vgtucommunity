@@ -52,6 +52,30 @@
         --badge-pra-t: #fbbf24;
     }
 
+    /* тема Бамбук короче рандом натыкал цвета в палитре */
+    [data-theme="bamboo"] {
+    --bg: #242424;
+    --bg-soft: #1d1d1d;
+    --card: #2d2d2d;
+    --card-border: #383838;
+    --text: #ffffff;
+    --text-dim: #aaaaaa;
+    --text-faint: #666666;
+    --accent: #00cc55;
+    --accent-soft: rgba(0, 204, 85, .13);
+    --accent-border: rgba(0, 204, 85, .38);
+    --now: #00cc55;
+    --now-soft: rgba(0, 204, 85, .11);
+    --chips-row: #2a2a2a;
+    --badge-lec-bg: rgba(87, 181, 129, .16);
+    --badge-lec-t: #57b581;
+    --badge-lab-bg: rgba(0, 204, 85, .14);
+    --badge-lab-t: #6ee7b7;
+    --badge-pra-bg: rgba(0, 204, 85, .14);
+    --badge-pra-t: #00cc55;
+}
+
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -1234,7 +1258,7 @@ if (!GROUPS[state.g]) {
     state.g = "ksk";
 }
 if (typeof state.settingsOpen !== "boolean") state.settingsOpen = false;
-if (!["graphite", "amber"].includes(state.theme)) state.theme = "graphite";   // темы оформления
+if (!["graphite", "amber", "bamboo"].includes(state.theme)) state.theme = "graphite";   // темы оформления
 document.documentElement.dataset.theme = state.theme;
 
 function saveState() {
@@ -1317,12 +1341,13 @@ function buildHalves() {
     });
 }
 
-// --- тема оформления: «Графит» (синяя) и «Янтарь» (тёплая), обе тёмные
+// --- тема оформления: «Графит» (синяя) и «Янтарь» (тёплая), обе тёмные. а еще новая бамбук крутая очень я придумал яяяя!!!!!!
 let themeChips = [];
 function buildThemes() {
     const specs = [
         { id: "graphite", label: "Графит", hint: "Тёмно-синяя, холодная" },
-        { id: "amber", label: "Янтарь", hint: "Тёмно-коричневая, тёплая" }
+        { id: "amber",    label: "Янтарь", hint: "Тёмно-коричневая, тёплая" },
+        { id: "bamboo",   label: "Бамбук", hint: "Тёмно-серая, зелёная" }   // ← добавили
     ];
     themeChips = specs.map(s => {
         const chip = makeChip(s.label, s.hint, () => {
