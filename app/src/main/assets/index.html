@@ -28,8 +28,6 @@
         --badge-pra-t: #fcd34d;
     }
 
-    /* Тема «Янтарь» — тоже тёмная, но в тёплых тонах: тёмно-коричневый графит
-       + янтарный акцент. Переключается в настройках (state.theme). */
     [data-theme="amber"] {
         --bg: #14100b;
         --bg-soft: #1b1510;
@@ -52,7 +50,6 @@
         --badge-pra-t: #fbbf24;
     }
 
-    /* тема Бамбук короче рандом натыкал цвета в палитре */
     [data-theme="bamboo"] {
     --bg: #242424;
     --bg-soft: #1d1d1d;
@@ -75,7 +72,6 @@
     --badge-pra-t: #00cc55;
 }
 
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -90,7 +86,6 @@
     .wrap { max-width: 1100px; margin: 0 auto; }
     main { margin-top: 22px; }
 
-    /* ---------- Шапка ---------- */
     header {
         display: flex;
         flex-wrap: wrap;
@@ -129,7 +124,6 @@
         animation: pulse 2s ease-in-out infinite;
     }
 
-    /* ---------- Панель управления ---------- */
     .controls {
         display: flex;
         flex-wrap: wrap;
@@ -184,7 +178,6 @@
     }
     .chip.active.today-hint::after { background: #fff; }
 
-    /* --- выпадающий список всех групп --- */
     #groupRow .group-picker { position: relative; display: inline-flex; }
     .picker-list {
         position: absolute; top: calc(100% + 8px); left: 0; z-index: 60;
@@ -212,7 +205,6 @@
     .group-picker .chev { font-size: 10px; transition: transform .25s ease; }
     .group-picker.open .chev { transform: rotate(180deg); }
 
-    /* ---------- Плашка первого запуска «Выберите группу» ---------- */
     .gate-overlay {
         position: fixed; inset: 0; z-index: 80;
         background: rgba(5, 7, 12, .66);
@@ -268,7 +260,6 @@
     }
     .gate-skip:hover { color: var(--text-dim); }
 
-    /* ---------- Блок «Настройки» ---------- */
     .settings-toggle {
         display: flex;
         align-items: center;
@@ -301,7 +292,7 @@
 
     .settings-panel {
         display: grid;
-        grid-template-rows: 0fr;          /* свёрнуто: плавное раскрытие через 1fr */
+        grid-template-rows: 0fr;
         opacity: 0;
         transform: translateY(-6px);
         visibility: hidden;
@@ -325,7 +316,6 @@
         gap: 14px;
     }
 
-    /* ---------- День (одиночный вид) ---------- */
     .day-title {
         font-size: 21px;
         font-weight: 650;
@@ -409,7 +399,6 @@
         margin-top: 3px;
     }
 
-    /* ---------- Рейтинг преподавателей ---------- */
     .teacher-name {
         background: none;
         border: none;
@@ -438,7 +427,6 @@
     .rating-chip:hover { transform: translateY(-1px); background: #2a3044; }
     .rating-chip.voted { color: #fcd34d; }
 
-    /* Окошко оценки */
     .rate-overlay {
         position: fixed;
         inset: 0;
@@ -565,7 +553,6 @@
         font-size: 14.5px;
     }
 
-    /* ---------- Неделя ---------- */
     .week-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -615,7 +602,6 @@
     .glance-text { font-size: 13.5px; line-height: 1.35; }
     .glance-text .x { color: var(--text-faint); }
 
-    /* ---------- Анимации ---------- */
     @keyframes fade-in {
         from { opacity: 0; }
     }
@@ -632,7 +618,6 @@
         50%      { opacity: .3; }
     }
 
-    /* тихое обновление по таймеру — без повторных анимаций появления */
     main.quiet * { animation: none !important; }
 
     .day-title { animation: rise-in .35s ease both; }
@@ -654,7 +639,6 @@
         }
     }
 </style>
-<!-- Yandex.Metrika counter -->
 <script type="text/javascript">
     (function(m,e,t,r,i,k,a){
         m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
@@ -666,7 +650,6 @@
     ym(113761418, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
 </script>
 <noscript><div><img src="https://mc.yandex.ru/watch/113761418" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
-<!-- /Yandex.Metrika counter -->
 </head>
 <body>
 <div class="wrap">
@@ -708,11 +691,6 @@
 <script>
 "use strict";
 
-/* ══════════════════ ДАННЫЕ (вшитые, как в консольной версии) ══════════════════
-   Каждая строка: день|номер пары|TOP/BOTTOM|подгруппа|аудитория|week_only|название
-   TOP = числитель, BOTTOM = знаменатель. Подгруппа 0 = обе подгруппы.
-   Поле week_only сохранено как в исходнике (в exe оно тоже не влияет на показ). */
-
 const DAYS = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 const DAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня",
@@ -723,10 +701,6 @@ const TIMES = [
 ];
 
 const GROUPS = {
-    /* Расписание группы брата — из файла MMR_241o.xls (осенний семестр 2026/27).
-       Числитель = первая строка слота в файле, знаменатель = вторая.
-       ВСЕ пары 3-й подгруппы (в файле они в столбцах «3 п/г») удалены — у группы её нет.
-       Одинаковые пары у двух подгрупп (физкультура) сведены в одну «общую». */
     mmr: { code: "ММР-241о", raw: `
 Понедельник|0|TOP|0|226/3|0|Лекционные занятия Установка и регулировка элементов мехатронных систем (Полухин А. К.)
 Понедельник|0|BOTTOM|0|422/3|0|Лекционные занятия Монтаж мехатронных систем (Коротков В. Н.)
@@ -769,7 +743,6 @@ const GROUPS = {
 Пятница|3|BOTTOM|1|137/3|0|Практические занятия Информационные технологии в профессиональной деятельности (Демихова И. В.)
 Пятница|3|BOTTOM|2|226/3|0|Лабораторные занятия Основы вычислительной техники (Полухин А. К.)
 ` },
-    /* Твоя группа — без изменений */
     ksk: { code: "КСК-241о", raw: `
 Понедельник|0|BOTTOM|2|223а/3|0|Лабораторные занятия Основы алгоритмизации и программирования (Залхаева Л. Э.)
 Понедельник|1|BOTTOM|2|223а/3|0|Лабораторные занятия Основы алгоритмизации и программирования (Залхаева Л. Э.)
@@ -821,12 +794,8 @@ const GROUPS = {
 Пятница|4|TOP|1|405/3|0|Лабораторные занятия Основы проектирования цифровой техники (Федорова Е. Н.)
 ` } };
 
-
-/* ══════════════════ РАЗБОР ДАННЫХ ══════════════════ */
-
 const DAY_INDEX = {}; DAYS.forEach((d, i) => DAY_INDEX[d] = i);
 
-// Тип занятия определяется по префиксу названия — как в оригинале
 function parseType(title) {
     if (title.startsWith("Лекционные занятия"))   return { type: "lec", label: "Лекция",     rest: title.slice("Лекционные занятия".length) };
     if (title.startsWith("Лабораторные занятия")) return { type: "lab", label: "Лаборатория", rest: title.slice("Лабораторные занятия".length) };
@@ -834,7 +803,6 @@ function parseType(title) {
     return { type: "pra", label: "Занятие", rest: title };
 }
 
-// Остаток названия разбираем на предмет, преподавателя "(Фамилия И. О.)" и примечание ("перевод …")
 function parseRest(rest) {
     const m = rest.match(/^(.*?)\s*\(([^()]+)\)\s*(.*)$/s);
     if (!m) return { subject: rest.trim(), teacher: "", note: "" };
@@ -855,7 +823,7 @@ function rebuildLessons() {
             const info = parseRest(type.rest);
             lessons.push({
                 g: gid,
-                d: day, t: +timeIdx, pos: pos.trim(), sub: +sub, w: 0, /* week_only — сохранено, как в исходнике, на показ не влияет */
+                d: day, t: +timeIdx, pos: pos.trim(), sub: +sub, w: 0,
                 room: room.trim() === "—" ? "" : room.trim(),
                 title: title.trim(),
                 subject: info.subject, teacher: info.teacher, note: info.note,
@@ -867,12 +835,8 @@ function rebuildLessons() {
 }
 rebuildLessons();
 
-// id статических групп (м always живой fallback)
 const STATIC_IDS = Object.keys(GROUPS);
 
-/* Динамическое расписание (schedule.json рядом со страницей) — генерируется
-   GitHub Actions из XLS-файлов cchgeu.ru (groups 24-го набора).
-   Формат каждой строки совпадает со статикой, так что всё работает без правок рендера. */
 function applyScheduleData(data) {
     if (!data || !data.groups) return;
     let added = 0;
@@ -883,7 +847,6 @@ function applyScheduleData(data) {
     }
     if (!added) return;
     rebuildLessons();
-    // отложенный выбор динамической группы — восстанавливаем именно его
     if (state.gPending && GROUPS[state.gPending]) {
         state.g = state.gPending;
         state.gPending = null;
@@ -892,44 +855,29 @@ function applyScheduleData(data) {
     if (state.sub > 0 && !subsOfGroup(state.g).includes(state.sub)) state.sub = 0;
     buildSubs();
     buildGroups();
-    if (gateRefresh) gateRefresh();   // список в открытой плашке первого запуска
+    if (gateRefresh) gateRefresh();
     render(false);
 }
 
-/* ══════════════════ РЕЙТИНГ ПРЕПОДАВАТЕЛЕЙ — общий, с именами ══════════════════
-   Каждый голос (оценка + имя) сохраняется в бесплатной базе Supabase,
-   поэтому рейтинг виден всем посетителям сайта. Настройка (15 минут):
-     1) supabase.com → регистрация → New project (регион — Франкфурт, без карты);
-     2) SQL Editor → вставить SQL таблицы → Run;
-     3) Settings → API Keys → скопировать Project URL и publishable ключ
-        (sb_publishable_...); в старых проектах это «anon public» ключ (eyJ...);
-     4) вписать их в RATINGS_DB ниже и залить обновлённый index.html на хостинг.
-   Пока поля пустые — резервный локальный режим: голоса хранятся только на
-   своём устройстве (точно так же работает резервная копия файла). */
-
 const RATINGS_DB = {
-    url: "https://fxvpwwnsynhucrvmssgt.supabase.co",   // Project URL — вписан
-    key: "sb_publishable_gcSIw_ItyVvn6sM4y_uFgw_e3TNwbTA"   // publishable ключ — вписан
+    url: "https://fxvpwwnsynhucrvmssgt.supabase.co",
+    key: "sb_publishable_gcSIw_ItyVvn6sM4y_uFgw_e3TNwbTA"
 };
 
 const RATINGS_STORE_KEY = "teacher-ratings";
-const PENDING_KEY = "teacher-ratings-pending";   // недоставленные голоса ждут связи
+const PENDING_KEY = "teacher-ratings-pending";
 
-// Заголовки запросов. Новый формат ключей (sb_publishable_...) идёт только
-// в заголовке apikey; старый JWT-ключ anon (начинается с eyJ) — и в Bearer.
 function supaHeaders(extra) {
     const h = { apikey: RATINGS_DB.key };
     if (!RATINGS_DB.key.startsWith("sb_")) h.Authorization = "Bearer " + RATINGS_DB.key;
     return Object.assign(h, extra || {});
 }
 
-// Запрос к таблице оценок: 3 попытки с таймаутом 9 с и паузами между ними —
-// одиночный fetch на дрожащем мобильном интернете часто виснет или рвётся.
 async function supaFetch(query, options, maxTries) {
     const tries = maxTries || 3;
     for (let i = 1; ; i++) {
         const ac = new AbortController();
-        const tmr = setTimeout(() => ac.abort(), 9000);   // не ждём подвисший запрос 30+ секунд
+        const tmr = setTimeout(() => ac.abort(), 9000);
         try {
             const r = await fetch(RATINGS_DB.url + "/rest/v1/rating_votes" + query,
                 Object.assign({ signal: ac.signal }, options || {}));
@@ -937,14 +885,14 @@ async function supaFetch(query, options, maxTries) {
             if (!r.ok) {
                 const err = new Error("HTTP " + r.status);
                 err.status = r.status;
-                if (r.status === 409) err.dup = true;     // это имя уже голосовало
+                if (r.status === 409) err.dup = true;
                 throw err;
             }
             return r;
         } catch (e) {
             clearTimeout(tmr);
             const st = e && e.status;
-            const retryable = !st || st >= 500;           // сеть/таймаут/ошибка сервера — повторяем; 4xx — нет
+            const retryable = !st || st >= 500;
             if (retryable && i < tries) {
                 await new Promise(res => setTimeout(res, 400 * i + Math.random() * 300));
                 continue;
@@ -954,15 +902,14 @@ async function supaFetch(query, options, maxTries) {
     }
 }
 
-// GET-запрос к таблице оценок
 function supaGet(query) {
     return supaFetch(query, { headers: supaHeaders() }).then(r => r.json());
 }
 
 const RATINGS = {
-    mode: (RATINGS_DB.url && RATINGS_DB.key) ? "cloud" : "local",   // общий / резервный
-    offline: false,          // облако настроено, но связи сейчас нет
-    cache: {},               // [ключ учителя]: {count, avg} — агрегаты из облака
+    mode: (RATINGS_DB.url && RATINGS_DB.key) ? "cloud" : "local",
+    offline: false,
+    cache: {},
     _norm(t) { return t.replace(/\s+/g, " ").trim(); },
     load() {
         return Object.assign({ votes: {}, my: {}, myName: "" },
@@ -970,7 +917,6 @@ const RATINGS = {
     },
     save(data) { localStorage.setItem(RATINGS_STORE_KEY, JSON.stringify(data)); },
 
-    // Среднее и число голосов. В облаке — из закэшированных данных, локально — свои.
     average(teacher) {
         const key = RATINGS._norm(teacher);
         if (RATINGS.mode === "cloud") {
@@ -985,8 +931,6 @@ const RATINGS = {
     myVote(teacher) { return RATINGS.load().my[RATINGS._norm(teacher)] || 0; },
     myName() { return RATINGS.load().myName || ""; },
 
-    // Обновить агрегаты из облака. При ошибке связи — молча переходим в локальный вид,
-    // но каждые 60 c пробуем ещё раз, пока не восстановим связность.
     _fetchTmr: null,
     scheduleFetchRetry() {
         clearTimeout(RATINGS._fetchTmr);
@@ -1016,16 +960,13 @@ const RATINGS = {
         }
     },
 
-    // Очередь недоставленных голосов: если POST не прошёл из-за сети, голос
-    // сохраняется в localStorage и отправляется авто-повтором позже (загрузка
-    // страницы, возврат во вкладку, каждые 90 c). Ничего не теряется.
     dequeue(key) {
         const l = RATINGS.loadPending().filter(p => p.teacher !== key);
         try { localStorage.setItem(PENDING_KEY, JSON.stringify(l)); } catch (e) {}
     },
     enqueue(v) {
         const l = RATINGS.loadPending();
-        if (l.some(p => p.teacher === v.teacher)) return;   // за препода ждёт максимум один голос
+        if (l.some(p => p.teacher === v.teacher)) return;
         l.push(v);
         try { localStorage.setItem(PENDING_KEY, JSON.stringify(l)); } catch (e) {}
     },
@@ -1051,14 +992,13 @@ const RATINGS = {
                 RATINGS.save(d);
                 changed = true;
             } catch (e) {
-                if (e && e.dup) {                // такое имя уже голосовало ранее — учтено
+                if (e && e.dup) {
                     RATINGS.dequeue(v.teacher);
                     const d = RATINGS.load();
                     d.my[v.teacher] = v.score;
                     RATINGS.save(d);
                     changed = true;
                 }
-                // сеть всё ещё не хоче — оставляем в очереди до следующего тика
             }
         }
         if (changed) {
@@ -1067,8 +1007,6 @@ const RATINGS = {
         }
     },
 
-    // Голос. В облаке — запись с именем (одно имя = один голос, повтор — ошибка 409),
-    // локально — гистограмма своих голосов, как раньше.
     async vote(teacher, score, name) {
         const key = RATINGS._norm(teacher);
         if (RATINGS.mode !== "cloud") {
@@ -1085,8 +1023,6 @@ const RATINGS = {
             RATINGS.save(data);
             return;
         }
-        // cloud: POST всегда пытаемся в облако — даже если GET агрегатов фейлился,
-        // «offline» из прошлого неудачного GET не означает, что пост тоже провалится.
         try {
             await supaFetch("", {
                 method: "POST",
@@ -1094,8 +1030,7 @@ const RATINGS = {
                 body: JSON.stringify({ teacher: key, voter_name: name, score: score })
             });
         } catch (e) {
-            if (e && e.dup) throw e;             // имя уже голосовало — покажем честно
-            // сеть не пустила: ставим в очередь, звёздочку показываем как выбранную
+            if (e && e.dup) throw e;
             RATINGS.enqueue({ teacher: key, score: score, name: name });
             const d = RATINGS.load();
             d.my[key] = score;
@@ -1109,44 +1044,36 @@ const RATINGS = {
         d2.my[key] = score;
         d2.myName = name;
         RATINGS.save(d2);
-        RATINGS.dequeue(key);                    // возможно, тут ждал более ранний недоставленный
+        RATINGS.dequeue(key);
         try { await RATINGS.fetchAll(); } catch (e) {}
     }
 };
 
-/* ══════════════════ ДАТЫ И ЧЁТНОСТЬ НЕДЕЛИ ══════════════════ */
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 
-// Полночь указанной даты (локальная)
 function midnight(date) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
     return d;
 }
 
-// Начало семестра: учебная неделя №1 = 31 августа 2026 (как в exe)
 const SEMESTER_START = new Date(2026, 7, 31);
 
-// Номер недели и её чётность для произвольной даты.
-// Возвращаем 1 = числитель, 2 = знаменатель. До начала семестра — числитель.
 function halfForDate(date) {
     const week = Math.floor((midnight(date) - SEMESTER_START) / WEEK_MS) + 1;
     if (week < 1) return { week, half: 1 };
     return { week, half: week % 2 === 1 ? 1 : 2 };
 }
 
-// Понедельник недели, в которую входит дата
 function mondayOf(date) {
     const d = midnight(date);
-    const shift = (d.getDay() + 6) % 7; // Вс=0 → 6
+    const shift = (d.getDay() + 6) % 7;
     return new Date(d.getTime() - shift * DAY_MS);
 }
 
 const TODAY = () => midnight(new Date());
 
-// Название дня недели по дате: 0 = сегодня, 1 = завтра (как в exe)
 function dayIndexFromDate(date) {
     return (date.getDay() + 6) % 7;
 }
@@ -1154,8 +1081,6 @@ function dayIndexFromDate(date) {
 function formatDate(date) {
     return date.getDate() + " " + MONTHS[date.getMonth()];
 }
-
-/* ══════════════════ ВРЕМЯ (подсветка текущей пары) ══════════════════ */
 
 function toMinutes(hhmm) {
     const [h, m] = hhmm.split(":").map(Number);
@@ -1166,7 +1091,6 @@ const SLOT_RANGES = TIMES.map(t => {
     return { start: toMinutes(a.trim()), end: toMinutes(b.trim()) };
 });
 
-// Статус пары относительно времени: 'now' | 'past' | '' (только для сегодняшней даты)
 function slotStatus(t, date) {
     if (midnight(date).getTime() !== TODAY().getTime()) return "";
     const now = new Date();
@@ -1177,16 +1101,13 @@ function slotStatus(t, date) {
     return "";
 }
 
-/* ══════════════════ ФИЛЬТРЫ (как в exe) ══════════════════ */
-
 function isCorrectHalf(l, half) {
-    if (half === 0) return true;          // показывать обе недели (не используется, но оставлено)
+    if (half === 0) return true;
     if (l.pos === "TOP") return half === 1;
     if (l.pos === "BOTTOM") return half === 2;
     return true;
 }
 
-// Возвращает занятия дня с учётом выбранной подгруппы и чётности
 function lessonsForDay(day, sub, half) {
     return lessons
         .filter(l => l.g === state.g && l.d === day && isCorrectHalf(l, half))
@@ -1194,13 +1115,8 @@ function lessonsForDay(day, sub, half) {
         .sort((a, b) => a.t - b.t || a.sub - b.sub);
 }
 
-/* ══════════════════ ОТСЧЁТ ДО ЗИМНЕЙ СЕССИИ ══════════════════ */
-
-// Начало зимней сессии: 22 декабря 2026, первая пара в 08:30.
-// Явное указание часа сделано, чтобы «полночь 22 декабря» не считалась сессией раньше времени.
 const SESSION_START = new Date(2026, 11, 22, 8, 30, 0);
 
-// Русские склонения: plural(61, ["день","дня","дней"]) → "дней"
 function plural(n, forms) {
     if (n % 10 === 1 && n % 100 !== 11) return forms[0];
     if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return forms[1];
@@ -1208,10 +1124,6 @@ function plural(n, forms) {
 }
 function nums(n, forms) { return n + " " + plural(n, forms); }
 
-// Состояние отсчёта в любой момент времени.
-// До сессии: { started:false, days, hours, minutes, seconds, text } —
-// обрезаем величины, которые уже безнадёжно велики (не показываем "0 дней 15 часов", если завтра).
-// После старта: { started:true, text:"Сессия началась!" }.
 function winterSessionCountdown(now = new Date()) {
     const diff = SESSION_START - now;
     if (diff <= 0) return { started: true, days: 0, hours: 0, minutes: 0, seconds: 0, text: "Сессия началась!" };
@@ -1219,8 +1131,6 @@ function winterSessionCountdown(now = new Date()) {
     const hours = Math.floor((diff % DAY_MS) / 3600000);
     const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
-    /* Спокойный формат (выбрано при согласовании): пока до сессии далеко — дни и часы;
-       без часов — только часы; в последний час — минуты; в последнюю минуту — секунды. */
     const parts = [];
     if (days > 0) {
         parts.push(nums(days, ["день", "дня", "дней"]));
@@ -1235,41 +1145,30 @@ function winterSessionCountdown(now = new Date()) {
     return { started: false, days, hours, minutes, seconds, parts, text: "До зимней сессии: " + parts.join(" ") };
 }
 
-/* ── Показ: бейдж в шапке (#countdownBadge, рядом с бейджем недели — выбран при согласовании).
-   Обновляется вместе с интерфейсом раз в минуту (достаточно для минутной точности);
-   после старта бейдж принимает золотую подсветку «Сессия началась!». */
-
-/* ══════════════════ СОСТОЯНИЕ ══════════════════ */
-
 const STORE_KEY = "schedule-settings";
 const state = Object.assign(
-    { view: "today", sub: 0, halfMode: "auto", g: "ksk", settingsOpen: false },   // view: 'today' | 'tomorrow' | 'week' | 0..6
+    { view: "today", sub: 0, halfMode: "auto", g: "ksk", settingsOpen: false },
     JSON.parse(localStorage.getItem(STORE_KEY) || "{}")
 );
 state.view = state.view === 0 || state.view ? state.view : "today";
 if (!(state.view === "today" || state.view === "tomorrow" || state.view === "week"
       || (Number.isInteger(state.view) && state.view >= 0 && state.view <= 6))) state.view = "today";
-if (![0, 1, 2, 3].includes(state.sub)) state.sub = 0;   // 3 = третья п/г (бывает в XLS); проверка по группе позже
+if (![0, 1, 2, 3].includes(state.sub)) state.sub = 0;
 if (!["auto", 1, 2].includes(state.halfMode)) state.halfMode = "auto";
 if (!GROUPS[state.g]) {
-    // группа динамическая (из schedule.json) и ещё не загрузилась —
-    // запоминаем отложенно и восстановим, когда данные придут
     state.gPending = state.g;
     state.g = "ksk";
 }
 if (typeof state.settingsOpen !== "boolean") state.settingsOpen = false;
-if (!["graphite", "amber", "bamboo"].includes(state.theme)) state.theme = "graphite";   // темы оформления
+if (!["graphite", "amber", "bamboo"].includes(state.theme)) state.theme = "graphite";
 document.documentElement.dataset.theme = state.theme;
 
 function saveState() {
-    // если выбор ещё «в ожидании» (динамическая группа не дошила) — сохраняем именно его
     const g = state.gPending || state.g;
     localStorage.setItem(STORE_KEY, JSON.stringify(
         { view: state.view, sub: state.sub, halfMode: state.halfMode, g, settingsOpen: state.settingsOpen, theme: state.theme }
     ));
 }
-
-/* ══════════════════ ОТРИСОВКА ══════════════════ */
 
 const $ = sel => document.querySelector(sel);
 const main = $("#main"), viewsRow = $("#viewsRow"), subRow = $("#subRow"), halfRow = $("#halfRow"), groupRow = $("#groupRow"), themeRow = $("#themeRow");
@@ -1284,7 +1183,6 @@ function makeChip(label, hint, onClick) {
     return b;
 }
 
-// --- вкладка с видами: Сегодня | Завтра | Пн..Вс | Неделя
 let viewChips = [];
 function buildViews() {
     const specs = [
@@ -1302,7 +1200,6 @@ function buildViews() {
     });
 }
 
-// --- выбор подгруппы
 let subChips = [];
 function subsOfGroup(gid) {
     const set = new Set();
@@ -1326,7 +1223,6 @@ function buildSubs() {
     });
 }
 
-// --- чётность недели
 let halfChips = [];
 function buildHalves() {
     const specs = [
@@ -1341,18 +1237,17 @@ function buildHalves() {
     });
 }
 
-// --- тема оформления: «Графит» (синяя) и «Янтарь» (тёплая), обе тёмные. а еще новая бамбук крутая очень я придумал яяяя!!!!!!
 let themeChips = [];
 function buildThemes() {
     const specs = [
         { id: "graphite", label: "Графит", hint: "Тёмно-синяя, холодная" },
         { id: "amber",    label: "Янтарь", hint: "Тёмно-коричневая, тёплая" },
-        { id: "bamboo",   label: "Бамбук", hint: "Тёмно-серая, зелёная" }   // ← добавили
+        { id: "bamboo",   label: "Бамбук", hint: "Тёмно-серая, зелёная" }
     ];
     themeChips = specs.map(s => {
         const chip = makeChip(s.label, s.hint, () => {
             state.theme = s.id;
-            document.documentElement.dataset.theme = s.id;   // CSS подхватывает мгновенно
+            document.documentElement.dataset.theme = s.id;
             saveState();
             renderThemes();
         });
@@ -1365,7 +1260,6 @@ function renderThemes() {
     themeChips.forEach(chip => chip.classList.toggle("active", state.theme === chip.dataset.themeId));
 }
 
-// Показ/скрытие панели настроек
 function applySettingsPanel() {
     settingsPanel.classList.toggle("open", state.settingsOpen);
     settingsToggle.classList.toggle("open", state.settingsOpen);
@@ -1373,7 +1267,6 @@ function applySettingsPanel() {
     renderThemes();
 }
 
-// --- выбор группы: любимые чипы + «Все группы ▾» с поиском
 let groupChips = [], pickerBtn = null, pickerLabel = null, pickerList = null, pickerSearch = null, pickerItemsBox = null;
 function buildGroups() {
     groupRow.querySelectorAll("button.chip, .group-picker").forEach(n => n.remove());
@@ -1389,8 +1282,6 @@ function buildGroups() {
     const chev = document.createElement("span");
     chev.className = "chev";
     chev.textContent = " ▾";
-    // кнопка отдельно, список отдельно (соседи в wrapper) — клики по пунктам
-    // не всплывают в кнопку, toggle не срабатывает «через раз»
     const wrap = document.createElement("div");
     wrap.className = "group-picker";
     pickerBtn = document.createElement("button");
@@ -1422,7 +1313,6 @@ function buildGroups() {
     pickerItemsBox.className = "picker-list-x";
     pickerList.append(pickerSearch, pickerItemsBox);
     wrap.append(pickerBtn, pickerList);
-    // ранее список был внутри кнопки — старые узлы чистятся автоматически в начале buildGroups
     groupRow.appendChild(wrap);
     renderPickerItems();
 }
@@ -1442,8 +1332,6 @@ function togglePicker(open) {
     if (open) {
         pickerSearch.value = "";
         renderPickerItems();
-        // на телефоне автопрошанка кидает клавиатуру и сдвигает список —
-        // фокус ставим только там, где привычен настоящий курсор/клавиатура
         if (window.matchMedia("(hover: hover) and (min-width: 600px)").matches) {
             setTimeout(() => pickerSearch.focus(), 0);
         }
@@ -1454,7 +1342,7 @@ function renderPickerItems() {
     const q = (pickerSearch.value || "").trim().toLowerCase();
     pickerItemsBox.innerHTML = "";
     let shown = 0;
-    const seenCodes = new Set();   // динамические группы могут повторять коды статических
+    const seenCodes = new Set();
     for (const id of Object.keys(GROUPS)) {
         const grp = GROUPS[id];
         if (seenCodes.has(grp.code)) continue;
@@ -1479,7 +1367,6 @@ function renderPickerItems() {
 }
 document.addEventListener("click", e => {
     if (!pickerList || !pickerList.classList.contains("open")) return;
-    // зажатие клика внутри chip-кнопки пикера тоже считается «внутри» (кнопка — сосед списка)
     const wrap = pickerList.parentElement;
     if (wrap && wrap.contains(e.target)) return;
     togglePicker(false);
@@ -1497,13 +1384,6 @@ function renderGroups() {
     }
 }
 
-/* ══════════════════ ПЛАШКА ПЕРВОГО ЗАПУСКА «Выберите группу» ══════════════════
-   Показывается один раз — пока в localStorage нет отметки group-picked.
-   Выбор сохраняется обычным saveState(), так что при следующих заходах
-   сайт сразу открывается на выбранной группе. */
-
-// Флаг храним отдельно от schedule-settings, чтобы старым постоянным
-// посетителям тоже один раз предложить выбор.
 const GATE_KEY = "group-picked";
 
 let gateOverlay = null;
@@ -1520,10 +1400,9 @@ function gateClose() {
 function showGroupGate() {
     try {
         if (localStorage.getItem(GATE_KEY) || localStorage.getItem(STORE_KEY)) {
-            // сохранённое состояние уже есть (приходил раньше) — не спрашиваем
             if (localStorage.getItem(GATE_KEY)) return;
         }
-    } catch (e) { /* приватный режим — просто не показываем */ return; }
+    } catch (e) {   return; }
 
     gateOverlay = document.createElement("div");
     gateOverlay.className = "gate-overlay";
@@ -1561,7 +1440,7 @@ function showGroupGate() {
         const q = (search.value || "").trim().toLowerCase();
         list.innerHTML = "";
         let shown = 0;
-        const seenCodes = new Set();   // без дубликатов кодов (статические vs динамические)
+        const seenCodes = new Set();
         for (const id of Object.keys(GROUPS)) {
             const code = GROUPS[id].code;
             if (seenCodes.has(code)) continue;
@@ -1574,7 +1453,7 @@ function showGroupGate() {
             b.textContent = code;
             b.addEventListener("click", () => {
                 try { localStorage.setItem(GATE_KEY, "1"); } catch (e) {}
-                gateClose();                 // вершину закрыть ДО render() — чипы уже собраны
+                gateClose();
                 pickGroup(id);
             });
             list.appendChild(b);
@@ -1586,7 +1465,6 @@ function showGroupGate() {
             list.appendChild(d);
         }
     };
-    // если schedule.json догрузится позже — список в открытой плашке обновится
     gateRefresh = renderGateItems;
     search.addEventListener("input", renderGateItems);
     renderGateItems();
@@ -1610,7 +1488,6 @@ function renderControls() {
         const raw = chip.dataset.viewId;
         const id = /^\d$/.test(raw) ? +raw : raw;
         chip.classList.toggle("active", state.view === id);
-        // помечаем точкой вкладку, соответствующую сегодняшнему дню
         const dayIdx = typeof id === "number" ? id : (id === "today" ? todayIdx : -1);
         chip.classList.toggle("today-hint", dayIdx === todayIdx);
     });
@@ -1627,7 +1504,6 @@ function renderBadge() {
     $("#weekBadge").textContent =
         (week >= 1 ? week + "-я учебная неделя · " : "семестр ещё не начался · ") + names[half];
 
-    // отсчёт до зимней сессии (бейдж рядом с неделей)
     const c = winterSessionCountdown();
     const ct = $("#countdownBadge");
     ct.hidden = false;
@@ -1635,11 +1511,10 @@ function renderBadge() {
     ct.textContent = c.started ? "🎓 Сессия началась!" : "⏳ До сессии: " + c.parts.join(" ");
 }
 
-// --- кармашек вывода одного занятия
 function lessonCard(l, isNow, delayMs = 0) {
     const div = document.createElement("div");
     div.className = "lesson" + (isNow ? " now" : "");
-    div.style.setProperty("--d", delayMs + "ms");   // каскад появления внутри слота
+    div.style.setProperty("--d", delayMs + "ms");
 
     const m = document.createElement("div");
     m.className = "l-main";
@@ -1677,7 +1552,6 @@ function lessonCard(l, isNow, delayMs = 0) {
     return div;
 }
 
-/* ── Строка преподавателя: кликабельная фамилия + плашка со средним рейтингом ── */
 function teacherRow(teacher) {
     const { count, avg } = RATINGS.average(teacher);
     const row = document.createElement("div");
@@ -1702,7 +1576,6 @@ function teacherRow(teacher) {
     return row;
 }
 
-/* ── Окошко оценки: обязательное имя + звёзды + кто и как голосовал ── */
 let rateOverlay = null, rateEscHandler = null;
 function closeRatePopup() {
     if (rateOverlay) { rateOverlay.remove(); rateOverlay = null; }
@@ -1739,7 +1612,6 @@ function openRatePopup(teacher) {
     input.addEventListener("input", () => { input.classList.remove("err"); refresh(); });
     card.appendChild(input);
 
-    // показать список голосовавших (из облака; локально — только свой голос)
     async function updateList() {
         card.querySelectorAll(".rate-list").forEach(n => n.remove());
         let items = [];
@@ -1820,9 +1692,9 @@ function openRatePopup(teacher) {
 
     async function doVote(score) {
         const name = input.value.replace(/\s+/g, " ").trim();
-        if (name.length < 2) {                       // имя обязательно
+        if (name.length < 2) {
             input.classList.remove("err");
-            void input.offsetWidth;                  // перезапуск анимации shake
+            void input.offsetWidth;
             input.classList.add("err");
             input.focus();
             return;
@@ -1830,7 +1702,7 @@ function openRatePopup(teacher) {
         card.querySelectorAll(".rate-note").forEach(n => n.remove());
         try {
             await RATINGS.vote(teacher, score, name);
-            render(false);                           // молча обновляем плашки у фамилий
+            render(false);
             refresh();
             await updateList();
         } catch (e) {
@@ -1849,7 +1721,7 @@ function openRatePopup(teacher) {
                     : "Не удалось сохранить оценку на устройстве.";
             }
             card.appendChild(msg);
-            refresh();                 //.UpdateList звёздочек/плашки: голос мог встать в очередь
+            refresh();
         }
     }
     refresh();
@@ -1861,7 +1733,6 @@ function openRatePopup(teacher) {
     document.addEventListener("keydown", rateEscHandler);
 }
 
-// --- вид одного дня
 function renderDay(dayIdx, date) {
     const half = state.halfMode === "auto" ? halfForDate(date).half : state.halfMode;
     const dayLessons = lessonsForDay(dayIdx, state.sub, half);
@@ -1891,7 +1762,7 @@ function renderDay(dayIdx, date) {
         const status = group.length ? slotStatus(t, date) : "";
         const slot = document.createElement("div");
         slot.className = "slot";
-        slot.style.setProperty("--i", t);           // каскад появления слотов
+        slot.style.setProperty("--i", t);
 
         const st = document.createElement("div");
         st.className = "slot-time";
@@ -1916,11 +1787,10 @@ function renderDay(dayIdx, date) {
     });
 }
 
-// --- краткая карточка для вида «Неделя»
 function glanceItem(l, isNow, delayMs = 0) {
     const item = document.createElement("div");
     item.className = "glance-item" + (isNow ? " now" : "");
-    item.style.setProperty("--d", delayMs + "ms");  // каскад появления внутри дня
+    item.style.setProperty("--d", delayMs + "ms");
     const tm = document.createElement("div");
     tm.className = "glance-time";
     tm.textContent = TIMES[l.t].slice(0, 5);
@@ -1940,7 +1810,6 @@ function glanceItem(l, isNow, delayMs = 0) {
     return item;
 }
 
-// --- вид всей недели
 function renderWeek() {
     const monday = mondayOf(TODAY());
     const { half } = halfForDate(TODAY());
@@ -1954,7 +1823,7 @@ function renderWeek() {
         const date = new Date(monday.getTime() + i * DAY_MS);
         const card = document.createElement("div");
         card.className = "week-day" + (i === todayIdx ? " today" : "");
-        card.style.setProperty("--i", i);           // каскад появления дней недели
+        card.style.setProperty("--i", i);
 
         const h = document.createElement("h3");
         h.textContent = name;
@@ -2002,14 +1871,11 @@ function render(animate = true) {
         date = new Date(TODAY().getTime() + DAY_MS);
         dayIdx = dayIndexFromDate(date);
     } else {
-        // выбранный день — берём этот же день текущей недели
         dayIdx = state.view;
         date = new Date(mondayOf(TODAY()).getTime() + dayIdx * DAY_MS);
     }
     renderDay(dayIdx, date);
 }
-
-/* ══════════════════ СТАРТ ══════════════════ */
 
 buildViews();
 buildSubs();
@@ -2026,20 +1892,13 @@ applySettingsPanel();
 render();
 showGroupGate();
 
-// подтягиваем общий рейтинг из облака и молча обновляем плашки у фамилий
-// Общий рейтинг: сначала (пере)читаем агрегаты из облака, потом доталкиваем
-// всё, что не доехало в прошлые сессии, и показываем результат.
 RATINGS.fetchAll().then(() => RATINGS.processPending()).then(() => render(false));
 
-// динамическое расписание всех групп 24-набора (генерируется GitHub Actions).
-// fetch same-origin; при недоступности тихо остаёмся на вшитой статике КСК/ММР
 fetch("schedule.json", { cache: "no-store" })
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => { applyScheduleData(data); })
     .catch(() => {});
 
-// обновляем подсветку «сейчас/прошло» раз в минуту — тихо, без анимаций
-// Доталкиваем недоставленные голоса: по таймеру и при возврате во вкладку.
 setInterval(() => { if (RATINGS.loadPending().length) RATINGS.processPending(); }, 90000);
 document.addEventListener("visibilitychange", () => {
     if (!document.hidden && RATINGS.loadPending().length) RATINGS.processPending();
@@ -2049,8 +1908,6 @@ setInterval(() => render(false), 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) render(false); });
 </script>
 
-<!-- Требование бесплатного DNS (DNSExit): ссылка на dnsexit.com на сайте,
-     иначе периодическая проверка может деактивировать зону vgtucommunity.2bd.net -->
 <p style="margin:0;padding:10px 0 14px;text-align:center;font-size:10.5px;color:rgba(255,255,255,.22);">DNS Powered by <a href="https://www.dnsexit.com" style="color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;">DNSEXIT.COM</a></p>
 </body>
 </html>
