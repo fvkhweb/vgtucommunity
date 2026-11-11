@@ -1,13 +1,12 @@
 # Обновление расписания всех групп 24-го набора (СПО КССГЕУ).
-# Каждые 2 часа: страница списка групп с cchgeu.ru, парсим свежие .xls,
 # складываем результат в schedule.json в корне репозитория (сайт читает его same-origin).
 
 name: update-schedule
 
 on:
   schedule:
-    - cron: "17 */2 * * *"   # каждые 2 часа, на 17-й минуте (вне пиков часа)
-  workflow_dispatch: {}      # ручной запуск из вкладки Actions
+    - cron: "17 3 * * *"   # раз в день в 03:17 UTC
+  workflow_dispatch: {}     # ручной запуск из вкладки Actions
 
 permissions:
   contents: write
